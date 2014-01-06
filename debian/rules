@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+override_dh_quilt_patch:
+	dh_quilt_patch
+	[ -f man/thermald.8 ] || mv man/thermald.1 man/thermald.8
+	[ -f man/thermal-conf.xml.5 ] || mv man/thermal-conf.xml.1 man/thermal-conf.xml.5
+
+override_dh_quilt_unpatch:
+	[ -f man/thermald.1 ] || mv man/thermald.8 man/thermald.1
+	[ -f man/thermal-conf.xml.1 ] || mv man/thermal-conf.xml.5 man/thermal-conf.xml.1
+	dh_quilt_unpatch
+
+override_dh_install:
+	dh_install
+	mv debian/thermald/usr/bin debian/thermald/usr/sbin
+
+%:
+	dh $@ --with autoreconf,quilt 

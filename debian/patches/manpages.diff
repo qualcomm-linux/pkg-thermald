@@ -1,0 +1,44 @@
+Index: thermal_daemon-1.1-rc2/man/thermal-conf.xml.1
+===================================================================
+--- thermal_daemon-1.1-rc2.orig/man/thermal-conf.xml.1	2014-01-06 10:48:47.806835657 +0000
++++ thermal_daemon-1.1-rc2/man/thermal-conf.xml.1	2014-01-06 10:48:47.806835657 +0000
+@@ -1,4 +1,4 @@
+-.\" thermal-conf.xml(1) manual page
++.\" thermal-conf.xml(5) manual page
+ .\"
+ .\" This is free documentation; you can redistribute it and/or
+ .\" modify it under the terms of the GNU General Public License as
+@@ -21,7 +21,7 @@
+ .\"
+ .\" Copyright (C) 2012 Intel Corporation. All rights reserved.
+ .\"
+-.TH thermal-conf.xml "1" "11 Dec 2013"
++.TH thermal-conf.xml "5" "11 Dec 2013"
+ 
+ .SH NAME
+ thermal-conf.xml \- Configuration file for thermal daemon
+Index: thermal_daemon-1.1-rc2/man/thermald.1
+===================================================================
+--- thermal_daemon-1.1-rc2.orig/man/thermald.1	2014-01-06 10:48:47.806835657 +0000
++++ thermal_daemon-1.1-rc2/man/thermald.1	2014-01-06 10:49:19.830834711 +0000
+@@ -1,4 +1,4 @@
+-.\" thermald (1) manual page
++.\" thermald (8) manual page
+ .\"
+ .\" This is free documentation; you can redistribute it and/or
+ .\" modify it under the terms of the GNU General Public License as
+@@ -21,7 +21,7 @@
+ .\"
+ .\" Copyright (C) 2012 Intel Corporation. All rights reserved.
+ .\"
+-.TH thermald "1" "8 May 2013"
++.TH thermald "8" "8 May 2013"
+ 
+ .SH NAME
+ thermald \- start Linux thermal daemon
+@@ -67,4 +67,4 @@
+ governor for thermal sysfs and take over control.
+ 
+ .SH SEE ALSO
+-thermal-conf.xml(1)
++thermal-conf.xml(5)

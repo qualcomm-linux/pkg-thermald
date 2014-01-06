@@ -1,0 +1,14 @@
+Index: thermal_daemon-1.1-rc2/Makefile.am
+===================================================================
+--- thermal_daemon-1.1-rc2.orig/Makefile.am	2014-01-06 10:49:45.582833950 +0000
++++ thermal_daemon-1.1-rc2/Makefile.am	2014-01-06 10:50:21.238832896 +0000
+@@ -72,7 +72,8 @@
+ 		src/thd_cdev_msr_rapl.cpp
+ 
+ 
+-man1_MANS = man/thermald.1 man/thermal-conf.xml.1
++man8_MANS = man/thermald.8
++man5_MANS = man/thermal-conf.xml.5
+ 
+ thd-dbus-interface.h: $(top_srcdir)/src/thd-dbus_interface.xml
+ 	$(AM_V_GEN) dbus-binding-tool --prefix=thd_dbus_interface --mode=glib-server --output=$@ $<

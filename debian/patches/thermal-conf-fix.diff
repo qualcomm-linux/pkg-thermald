@@ -1,0 +1,14 @@
+Index: thermal_daemon-1.1-rc2/man/thermal-conf.xml.1
+===================================================================
+--- thermal_daemon-1.1-rc2.orig/man/thermal-conf.xml.1	2014-01-08 10:34:08.254148834 +0000
++++ thermal_daemon-1.1-rc2/man/thermal-conf.xml.1	2014-01-08 10:35:00.154147301 +0000
+@@ -66,7 +66,8 @@
+ 	<!--UUID is optional, if present this will be matched. Both product name and UUID can contain wild card "*", which matches any platform.-->
+ .TP
+ 	<UUID>Example UUID</UUID>
+-.TP configuration file format confirms to XML specifications. A set of tags defined to define platform, sensors, zones,  cooling
++.TP
++configuration file format confirms to XML specifications. A set of tags defined to define platform, sensors, zones,  cooling
+        devices and trip points.
+ 
+        <ThermalConfiguration>

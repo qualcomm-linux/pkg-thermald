@@ -1,0 +1,5 @@
+thermald (1.1~rc2-1) unstable; urgency=low
+
+  * Initial Debian Release (Closes: #734615)
+
+ -- Colin King <colin.king@canonical.com>  Mon, 6 Jan 2014 12:05:23 +0000
