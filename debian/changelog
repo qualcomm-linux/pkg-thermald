@@ -1,3 +1,9 @@
+thermald (1.1~rc2-2) unstable; urgency=low
+
+  * Fix i386 PIC ebx clobbering with cpuid
+
+ -- Colin King <colin.king@canonical.com>  Thu, 9 Jan 2014 18:52:01 +0000
+
 thermald (1.1~rc2-1) unstable; urgency=low
 
   * Initial Debian Release (Closes: #734615)
