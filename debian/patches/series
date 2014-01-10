@@ -1,4 +1,5 @@
-manpages.diff
 makefile.diff
 thermal-conf-fix.diff
 i386-pic-fixes.diff
+0001-Buggy-thermal-zone-trip-index.patch
+manpages.diff
