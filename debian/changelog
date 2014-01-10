@@ -1,3 +1,9 @@
+thermald (1.1~rc2-4) unstable; urgency=low
+
+  * Fix FTBFS, remove quilt from dh line
+
+ -- Colin King <colin.king@canonical.com>  Fri, 10 Jan 2014 17:25:29 +0000
+
 thermald (1.1~rc2-3) unstable; urgency=low
 
   * Correctly rename man pages, fixes FTBFS (Closes: #734786)
