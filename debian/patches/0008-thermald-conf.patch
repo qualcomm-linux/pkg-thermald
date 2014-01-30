@@ -1,0 +1,30 @@
+Index: thermald-1.1~rc2/data/thermald.conf
+===================================================================
+--- thermald-1.1~rc2.orig/data/thermald.conf	2014-02-03 09:07:25.284158547 +0000
++++ thermald-1.1~rc2/data/thermald.conf	2014-02-03 09:09:14.264046326 +0000
+@@ -2,15 +2,20 @@
+ # Upstart configuration file
+ # Manages platform thermals
+ 
+-description	"thermal daemon"
++description     "thermal daemon"
+ 
+ start on started dbus
+ stop on stopping dbus
+ 
++#
++# don't respawn on error
++#
++normal exit 1
++
+ respawn
++#
++# consider something wrong if respawned 10 times in 1 minute
++#
++respawn limit 10 60
+ 
+-script
+-echo "Waiting for thermal zone and coretemp sysfs to be ready "
+-sleep 5
+ exec thermald --no-daemon --dbus-enable
+-end script

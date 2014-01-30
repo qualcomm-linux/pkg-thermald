@@ -1,7 +1,7 @@
-Index: thermal_daemon-1.1-rc2/man/thermal-conf.xml.1
+Index: thermald-1.1~rc2/man/thermal-conf.xml.5
 ===================================================================
---- thermal_daemon-1.1-rc2.orig/man/thermal-conf.xml.1	2014-01-08 10:34:08.254148834 +0000
-+++ thermal_daemon-1.1-rc2/man/thermal-conf.xml.1	2014-01-08 10:35:00.154147301 +0000
+--- thermald-1.1~rc2.orig/man/thermal-conf.xml.5	2014-01-30 11:04:10.855847051 +0000
++++ thermald-1.1~rc2/man/thermal-conf.xml.5	2014-01-30 11:05:42.275844350 +0000
 @@ -66,7 +66,8 @@
  	<!--UUID is optional, if present this will be matched. Both product name and UUID can contain wild card "*", which matches any platform.-->
  .TP

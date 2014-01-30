@@ -1,3 +1,12 @@
+thermald (1.1~rc2-5) unstable; urgency=low
+
+  * Fix up exit() to use standard EXIT_* macros
+  * Fix log messages that don't have a trailing newline at end
+  * Minor re-ordering of PIC ebx pop
+  * Upstart conf: handle exit failures to avoid re-running forever
+
+ -- Colin King <colin.king@canonical.com>  Thu, 30 Jan 2014 11:21:00 +0000
+
 thermald (1.1~rc2-4) unstable; urgency=low
 
   * Fix FTBFS, remove quilt from dh line

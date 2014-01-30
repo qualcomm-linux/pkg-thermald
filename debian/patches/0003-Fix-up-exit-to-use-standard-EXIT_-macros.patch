@@ -1,0 +1,148 @@
+From e7e59d147c69eea908e34924d0e6279080d16c80 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Tue, 28 Jan 2014 14:44:49 +0000
+Subject: [PATCH 1/3] Fix up exit() to use standard EXIT_* macros
+
+Minor tidy of code, no functional change, use standard
+EXIT_* macros:
+
+  exit(0) --> exit(EXIT_SUCCESS)
+  exit(1) --> exit(EXIT_FAILURE)
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/android_main.cpp | 12 ++++++------
+ src/main.cpp         | 12 ++++++------
+ src/thd_engine.cpp   |  4 ++--
+ 3 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/src/android_main.cpp b/src/android_main.cpp
+index ba1251d..64530cb 100644
+--- a/src/android_main.cpp
++++ b/src/android_main.cpp
+@@ -118,7 +118,7 @@ static void daemonize(char *rundir, char *pidfile) {
+ 	if (pid_file_handle == -1) {
+ 		/* Couldn't open lock file */
+ 		thd_log_info("Could not open PID lock file %s, exiting", pidfile);
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 	/* Try to lock file */
+ #ifdef LOCKF_SUPPORT
+@@ -128,7 +128,7 @@ static void daemonize(char *rundir, char *pidfile) {
+ #endif
+ 		/* Couldn't get lock on lock file */
+ 		thd_log_info("Couldn't get lock file %d\n", getpid());
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 	thd_log_info("Thermal PID %d\n", getpid());
+ 	sprintf(str, "%d\n", getpid());
+@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
+ 				break;
+ 			case 'v':
+ 				fprintf(stdout, "1.1\n");
+-				exit(0);
++				exit(EXIT_SUCCESS);
+ 				break;
+ 			case 'n':
+ 				no_daemon = true;
+@@ -197,14 +197,14 @@ int main(int argc, char *argv[]) {
+ 	}
+ 	if (getuid() != 0 && !test_mode) {
+ 		fprintf(stderr, "You must be root to run thermal daemon!\n");
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 
+ 	if ((c = mkdir(TDRUNDIR, 0755)) != 0) {
+ 		if (errno != EEXIST) {
+ 			fprintf(stderr, "Cannot create '%s': %s\n", TDRUNDIR,
+ 					strerror(errno));
+-			exit(1);
++			exit(EXIT_FAILURE);
+ 		}
+ 	}
+ 	mkdir(TDCONFDIR, 0755); // Don't care return value as directory
+@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
+ 	// Initialize thermald objects
+ 	if (thd_engine->thd_engine_start(false) != THD_SUCCESS) {
+ 		thd_log_error("thermald engine start failed: ");
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ #ifdef VALGRIND_TEST
+ 	// lots of STL lib function don't free memory
+diff --git a/src/main.cpp b/src/main.cpp
+index f155db8..05185e4 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -286,7 +286,7 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
+ 	if (thd_engine->thd_engine_start(ignore_cpuid_check) != THD_SUCCESS) {
+ 		thd_log_error("THD engine start failed: ");
+ 		closelog();
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 
+ 	// Start service requests on the D-Bus
+@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
+ 
+ 	if (!g_module_supported()) {
+ 		fprintf(stderr, _("GModules are not supported on your platform!\n"));
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 
+ 	/* Set locale to be able to use environment variables */
+@@ -371,21 +371,21 @@ int main(int argc, char *argv[]) {
+ 		fprintf(stderr,
+ 				_(
+ 						"Invalid option.  Please use --help to see a list of valid options.\n"));
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 
+ 	if (show_version) {
+ 		fprintf(stdout, TD_DIST_VERSION "\n");
+-		exit(0);
++		exit(EXIT_SUCCESS);
+ 	}
+ 
+ 	if (getuid() != 0 && !test_mode) {
+ 		fprintf(stderr, _("You must be root to run thermald!\n"));
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 	if (g_mkdir_with_parents(TDRUNDIR, 0755) != 0) {
+ 		fprintf(stderr, "Cannot create '%s': %s", TDRUNDIR, strerror(errno));
+-		exit(1);
++		exit(EXIT_FAILURE);
+ 	}
+ 	g_mkdir_with_parents(TDCONFDIR, 0755); // Don't care return value as directory
+ 	// may already exist
+diff --git a/src/thd_engine.cpp b/src/thd_engine.cpp
+index b71e68a..2d04dbf 100644
+--- a/src/thd_engine.cpp
++++ b/src/thd_engine.cpp
+@@ -237,7 +237,7 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
+ 		if((childpid = fork()) == - 1)
+ 		{
+ 			perror("fork");
+-			exit(1);
++			exit(EXIT_FAILURE);
+ 		}
+ 
+ 		if(childpid == 0)
+@@ -506,7 +506,7 @@ void cthd_engine::giveup_thermal_control() {
+ void cthd_engine::process_terminate() {
+ 	thd_log_warn("terminating on user request ..\n");
+ 	giveup_thermal_control();
+-	exit(0);
++	exit(EXIT_SUCCESS);
+ }
+ 
+ void cthd_engine::thd_engine_poll_enable(int sensor_id) {
+-- 
+1.8.5.3
+
