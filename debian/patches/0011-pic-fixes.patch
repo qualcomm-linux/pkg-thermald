@@ -1,8 +1,8 @@
 Index: thermald-1.1~rc2/src/thd_engine.cpp
 ===================================================================
---- thermald-1.1~rc2.orig/src/thd_engine.cpp	2014-02-03 09:07:25.252174548 +0000
-+++ thermald-1.1~rc2/src/thd_engine.cpp	2014-02-03 09:15:13.060035725 +0000
-@@ -557,14 +557,26 @@
+--- thermald-1.1~rc2.orig/src/thd_engine.cpp	2014-02-04 09:52:47.172213292 +0000
++++ thermald-1.1~rc2/src/thd_engine.cpp	2014-02-04 09:57:25.836202271 +0000
+@@ -557,15 +557,27 @@
  	proc_list_matched = false;
  	ebx = ecx = edx = 0;
  
@@ -18,7 +18,8 @@ Index: thermald-1.1~rc2/src/thd_engine.cpp
  	if (ebx == 0x756e6547 && edx == 0x49656e69 && ecx == 0x6c65746e)
  		genuine_intel = 1;
  	if (genuine_intel == 0) {
- 		thd_log_warn("Not running on a genuine Intel CPU!\n");
+ 		// Simply return without further capability check
+ 		return THD_SUCCESS;
  	}
 +#if defined(__i386__)
 +	asm("pushl %ebx;");

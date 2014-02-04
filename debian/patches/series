@@ -3,6 +3,9 @@
 0003-Fix-up-exit-to-use-standard-EXIT_-macros.patch
 0004-Fix-log-messages-that-don-t-have-a-trailing-newline-.patch
 0005-man-pages-move-man-pages-into-the-correct-sections.patch
-0006-i386-pic-fixes.patch
-0007-thermal-conf.patch
-0008-thermald-conf.patch
+0006-thermal-conf.patch
+0007-thermald-conf.patch
+0008-Remove-warning-for-non-Intel-processor.patch
+0009-Fix-checking-for-cooling_device.patch
+0010-Fix-compenstion-using-Processor-thermal-cooling-devi.patch
+0011-pic-fixes.patch
