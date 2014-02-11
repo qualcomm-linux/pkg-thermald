@@ -9,3 +9,5 @@
 0009-Fix-checking-for-cooling_device.patch
 0010-Fix-compenstion-using-Processor-thermal-cooling-devi.patch
 0011-pic-fixes.patch
+0012-Prevent-exception-for-invalid-sysfs-file-reads.patch
+0013-Redirect-stderr-stdout-and-stdin-to-dev-null-to-stop.patch

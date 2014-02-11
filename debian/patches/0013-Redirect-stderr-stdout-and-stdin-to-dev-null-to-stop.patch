@@ -1,0 +1,49 @@
+From 51be4cb95849feed00fea1786da6a2d070ab9a72 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Sun, 9 Feb 2014 19:05:43 +0000
+Subject: [PATCH] Redirect stderr, stdout and stdin to /dev/null to stop poll()
+ spinning
+
+If one starts thermald from a tty and logs out the associated /dev/tty
+on fd 0 is removed causing the poll in thd_engine_thread() to spin
+rapidly, strace shows this as:
+
+[pid 20991] poll([{fd=7, events=POLLIN}, {fd=0, events=0}, {fd=0, events=0},
+{fd=0, events=0}, {fd=0, events=0}, {fd=0, events=0}, {fd=0, events=0},
+{fd=0, events=0}, {fd=0, events=0}, {fd=5, events=POLLIN}], 10, 4000) = 8
+([{fd=0, revents=POLLERR|POLLHUP}, {fd=0, revents=POLLERR|POLLHUP},
+{fd=0, revents=POLLERR|POLLHUP}, {fd=0, revents=POLLERR|POLLHUP},
+{fd=0, revents=POLLERR|POLLHUP}, {fd=0, revents=POLLERR|POLLHUP},
+{fd=0, revents=POLLERR|POLLHUP}, {fd=0, revents=POLLERR|POLLHUP}])
+
+add infinitum.  The return revents shows fd0 is returning a poll error, and
+looking at /proc/$pid/fd for this process shows:
+
+lrwx------ 1 root root 64 Feb  9 18:51 0 -> /dev/pts/6 (deleted)
+lrwx------ 1 root root 64 Feb  9 18:51 1 -> /dev/pts/6 (deleted)
+lrwx------ 1 root root 64 Feb  9 18:51 2 -> /dev/pts/6 (deleted)
+
+The simple fix is to associate fd 0..2 /dev/null by calling
+daemonize appropriately.  Fixes Debian thermald bug #737093.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/main.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/main.cpp b/src/main.cpp
+index a026501..5e1b369 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -271,7 +271,7 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
+ 				"thermald ver %s: Ready to serve requests: Daemonizing..\n",
+ 				TD_DIST_VERSION);
+ 
+-		if (daemon(0, 1) != 0) {
++		if (daemon(0, 0) != 0) {
+ 			thd_log_error("Failed to daemonize.\n");
+ 			return THD_FATAL_ERROR;
+ 		}
+-- 
+1.9.rc1
+

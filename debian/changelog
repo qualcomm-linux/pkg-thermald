@@ -1,6 +1,13 @@
+thermald (1.1~rc2-7) unstable; urgency=low
+
+  * Redirect fd 0, 1, 2 to /dev/null to stop poll() spinning (Closes: #737093)
+  * Add upstream commit; Prevent exception for invalid sysfs file reads
+
+ -- Colin King <colin.king@canonical.com>  Tue, 11 Feb 2014 08:06:33 +0000
+
 thermald (1.1~rc2-6) unstable; urgency=low
 
-  * Add upstream commit: Remove warning for non Intel processo
+  * Add upstream commit: Remove warning for non Intel processor
   * Add upstream commit: Fix checking for cooling_device
   * Add upstream commit: Fix compenstion using "Processor" thermal cooling device
   * Re-work PIC ebx workaround
