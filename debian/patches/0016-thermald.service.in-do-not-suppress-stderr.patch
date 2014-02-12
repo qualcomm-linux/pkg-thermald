@@ -1,0 +1,24 @@
+From 57403e1581464b738f0877599285c2ed553abf66 Mon Sep 17 00:00:00 2001
+From: Simon McVittie <smcv@debian.org>
+Date: Wed, 12 Feb 2014 10:38:55 +0000
+Subject: [PATCH] thermald.service.in: do not suppress stderr
+
+Unless thermald's stderr is really spammy, it's better to capture
+all of its output so that any error/warning messages appear in
+the Journal.
+---
+ data/thermald.service.in | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/data/thermald.service.in b/data/thermald.service.in
+index 3667dde..253ac0d 100644
+--- a/data/thermald.service.in
++++ b/data/thermald.service.in
+@@ -5,7 +5,6 @@ Description=Thermal Daemon Service
+ Type=dbus
+ BusName=org.freedesktop.thermald
+ ExecStart=@sbindir@/thermald --no-daemon --dbus-enable
+-StandardError=null
+ 
+ [Install]
+ WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+From 6dd9ae1cb6c512fcff03e559371e55ed09a039ad Mon Sep 17 00:00:00 2001
+From: Simon McVittie <smcv@debian.org>
+Date: Wed, 12 Feb 2014 10:36:57 +0000
+Subject: [PATCH] thermald.service.in: do not depend on syslog.target
+
+systemd uses socket activation for syslog.target, so it's unnecessary
+to depend on it.
+---
+ data/thermald.service.in | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/data/thermald.service.in b/data/thermald.service.in
+index 1d5a704..3667dde 100644
+--- a/data/thermald.service.in
++++ b/data/thermald.service.in
+@@ -1,6 +1,5 @@
+ [Unit]
+ Description=Thermal Daemon Service
+-After=syslog.target
+ 
+ [Service]
+ Type=dbus

@@ -1,3 +1,19 @@
+thermald (1.1~rc2-8) unstable; urgency=medium
+
+  [Simon McVittie <smcv@debian.org>]
+  * Add a patch to install thermald to ${sbindir} without needing a
+    workaround in debian/rules, and have the systemd service file
+    use that path automatically
+  * Install the systemd service file (Closes: #738719)
+  * Activate hardening via DEB_BUILD_MAINT_OPTIONS instead of
+    hardening-wrapper
+  * Add patches to improve the systemd service
+  * Use dh-systemd to sync up enabledness status between sysvinit and systemd
+  [Colin King]
+  * Use __cpuid rather than use inline asm, simplifies i386 PIC builds
+
+ -- Colin King <colin.king@canonical.com>  Wed, 12 Feb 2014 11:49:37 +0000
+
 thermald (1.1~rc2-7) unstable; urgency=low
 
   * Redirect fd 0, 1, 2 to /dev/null to stop poll() spinning (Closes: #737093)

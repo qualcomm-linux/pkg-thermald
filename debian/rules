@@ -1,9 +1,15 @@
 #!/usr/bin/make -f
 
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+include /usr/share/dpkg/default.mk
+
+# this path for systemdsystemunitdir is correct for Debian, and avoids
+# needing to build-depend on systemd for systemd.pc
+override_dh_auto_configure:
+	dh_auto_configure -- --with-systemdsystemunitdir=/lib/systemd/system
+
 override_dh_install:
 	dh_install
-	mv debian/thermald/usr/bin debian/thermald/usr/sbin
 
 %:
-	dh $@ --with autoreconf
-
+	dh $@ --with autoreconf,systemd
