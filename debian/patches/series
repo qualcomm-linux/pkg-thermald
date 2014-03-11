@@ -14,3 +14,15 @@
 0014-Install-thermald-in-sbindir-and-point-systemd-servic.patch
 0015-thermald.service.in-do-not-depend-on-syslog.target.patch
 0016-thermald.service.in-do-not-suppress-stderr.patch
+0017-Fix-up-some-memory-leaks-in-THD_SUCCESS-branches.patch
+0018-cthd_engine-guard-against-negative-array-indexes.patch
+0019-csys_fs-fix-fd-leaks-in-lseek-error-return-path.patch
+0020-cthd_engine-remove-redundant-reads-of-thermal-zone-t.patch
+0021-thd_engine.cpp-use-u-intead-of-d-for-signed-integers.patch
+0022-thd_model.cpp-use-correct-integer-format-specifiers.patch
+0023-thd_model.cpp-remove-ununsed-variable-file.patch
+0024-thd_parse.cpp-use-correct-unsigned-integer-format-sp.patch
+0025-thd_engine.cpp-check-fcntl-non-blocking-error-return.patch
+0026-fix-leak-of-trip_ptr-in-read_trip_points.patch
+0027-ensure-device_path-is-null-terminated.patch
+0028-get_preference_cstr-return-C-string-allocated-on-hea.patch

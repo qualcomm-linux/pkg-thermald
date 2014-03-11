@@ -1,0 +1,39 @@
+From bd13efe3e7d2bcc900ec4fdbe3fa2a406ae92866 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Mon, 10 Mar 2014 09:59:33 +0000
+Subject: [PATCH 18/28] cthd_engine: guard against negative array indexes
+
+cthd_engine::get_sensor() and cthd_engine::get_zone() should
+be checking for negative array indexes to avoid array indexing
+underflow.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/thd_engine.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/thd_engine.cpp b/src/thd_engine.cpp
+index f00c616..565b3d4 100644
+--- a/src/thd_engine.cpp
++++ b/src/thd_engine.cpp
+@@ -725,7 +725,7 @@ cthd_sensor* cthd_engine::search_sensor(std::string name) {
+ }
+ 
+ cthd_sensor* cthd_engine::get_sensor(int index) {
+-	if (index < (int) sensors.size())
++	if (index >= 0 && index < (int) sensors.size())
+ 		return sensors[index];
+ 	else
+ 		return NULL;
+@@ -734,7 +734,7 @@ cthd_sensor* cthd_engine::get_sensor(int index) {
+ cthd_zone* cthd_engine::get_zone(int index) {
+ 	if (index == -1)
+ 		return NULL;
+-	if (index < (int) zones.size())
++	if (index >= 0 && index < (int) zones.size())
+ 		return zones[index];
+ 	else
+ 		return NULL;
+-- 
+1.9.0
+

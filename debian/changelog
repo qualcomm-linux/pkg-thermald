@@ -1,3 +1,20 @@
+thermald (1.1~rc2-9) unstable; urgency=medium
+
+  * Fix up some memory leaks in !THD_SUCCESS branches
+  * cthd_engine: guard against negative array indexes
+  * csys_fs: fix fd leaks in lseek error return path
+  * cthd_engine: remove redundant reads of thermal zone
+  * thd_engine.cpp: use %u intead of %d for signed integers
+  * thd_model.cpp: use correct integer format specifiers
+  * thd_model.cpp: remove ununsed variable 'file'
+  * thd_parse.cpp: use correct unsigned integer format specifiers
+  * thd_engine.cpp: check fcntl non-blocking error return
+  * fix leak of trip_ptr in read_trip_points
+  * ensure device_path is null terminated
+  * get_preference_cstr: return C string allocated on heap
+
+ -- Colin King <colin.king@canonical.com>  Tue, 11 Mar 2014 09:23:00 +0000
+
 thermald (1.1~rc2-8) unstable; urgency=medium
 
   [Simon McVittie <smcv@debian.org>]
