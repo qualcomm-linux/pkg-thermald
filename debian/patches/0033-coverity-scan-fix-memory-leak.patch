@@ -1,0 +1,27 @@
+From d60a812c53fe969bcb93c7c870f79b5ae305aed8 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Wed, 12 Mar 2014 09:51:13 +0000
+Subject: [PATCH 33/33] coverity scan: fix memory leak
+
+delete trip_ptr, fixes memory leak detected by coverity scan
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/thd_zone_generic.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/thd_zone_generic.cpp b/src/thd_zone_generic.cpp
+index fdfdb13..08b18c5 100644
+--- a/src/thd_zone_generic.cpp
++++ b/src/thd_zone_generic.cpp
+@@ -92,6 +92,7 @@ int cthd_zone_generic::read_trip_points() {
+ 			trip_points.push_back(*trip_ptr);
+ 			++trip_point_cnt;
+ 		}
++		delete trip_ptr;
+ 	}
+ 
+ 	return 0;
+-- 
+1.9.0
+

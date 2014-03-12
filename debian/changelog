@@ -1,3 +1,15 @@
+thermald (1.1~rc2-10) unstable; urgency=medium
+
+  [Colin Ian King]
+  * coverity scan: fix memory leak on trip_ptr
+  * coverity scan: fix leaking dir on error exit path
+  [Srinivas Pandruvada]
+  * coverity scan: fix Unrecoverable parse warning
+  * coverity scan: Untrusted loop bound
+  * coverity scan: Uninitialized scalar field errors
+
+ -- Colin King <colin.king@canonical.com>  Wed, 12 Mar 2014 10:03:33 +0000
+
 thermald (1.1~rc2-9) unstable; urgency=medium
 
   * Fix up some memory leaks in !THD_SUCCESS branches

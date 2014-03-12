@@ -26,3 +26,8 @@
 0026-fix-leak-of-trip_ptr-in-read_trip_points.patch
 0027-ensure-device_path-is-null-terminated.patch
 0028-get_preference_cstr-return-C-string-allocated-on-hea.patch
+0029-coverity-scans-Uninitialized-scalar-field-errors.patch
+0030-coverity-scan-Untrusted-loop-bound.patch
+0031-coverity-scans-fix-Unrecoverable-parse-warning.patch
+0032-coverity-scan-fix-leaking-dir.patch
+0033-coverity-scan-fix-memory-leak.patch
