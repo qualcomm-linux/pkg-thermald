@@ -1,0 +1,58 @@
+From 37701f33665de755bdd5218afc7888ae7a911457 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Sun, 16 Mar 2014 18:17:39 -0700
+Subject: [PATCH] Fix Kclockwork issue: gettext bounds
+
+klocworks complains about gettext buffer overflow issues.
+---
+ src/main.cpp | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/src/main.cpp b/src/main.cpp
+index 0eda788..4dfe48e 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
+ 	{ NULL } };
+ 
+ 	if (!g_module_supported()) {
+-		fprintf(stderr, _("GModules are not supported on your platform!\n"));
++		fprintf(stderr, "GModules are not supported on your platform!\n");
+ 		exit(EXIT_FAILURE);
+ 	}
+ 
+@@ -365,17 +365,17 @@ int main(int argc, char *argv[]) {
+ 	g_option_context_add_main_entries(opt_ctx, options, NULL);
+ 
+ 	g_option_context_set_summary(opt_ctx,
+-			_(
+-					"Thermal daemon monitors temperature sensors and decides the best action "
+-							"based on the temperature readings and user preferences."));
++
++	"Thermal daemon monitors temperature sensors and decides the best action "
++			"based on the temperature readings and user preferences.");
+ 
+ 	success = g_option_context_parse(opt_ctx, &argc, &argv, NULL);
+ 	g_option_context_free(opt_ctx);
+ 
+ 	if (!success) {
+ 		fprintf(stderr,
+-				_(
+-						"Invalid option.  Please use --help to see a list of valid options.\n"));
++
++		"Invalid option.  Please use --help to see a list of valid options.\n");
+ 		exit(EXIT_FAILURE);
+ 	}
+ 
+@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
+ 	}
+ 
+ 	if (getuid() != 0 && !test_mode) {
+-		fprintf(stderr, _("You must be root to run thermald!\n"));
++		fprintf(stderr, "You must be root to run thermald!\n");
+ 		exit(EXIT_FAILURE);
+ 	}
+ 	if (g_mkdir_with_parents(TDRUNDIR, 0755) != 0) {
+-- 
+1.9.0
+

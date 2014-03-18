@@ -31,3 +31,8 @@
 0031-coverity-scans-fix-Unrecoverable-parse-warning.patch
 0032-coverity-scan-fix-leaking-dir.patch
 0033-coverity-scan-fix-memory-leak.patch
+0034-Fix-Kclockwork-issue-gettext-bounds.patch
+0035-Klockworks-issue-with-strcasecmp-NULL-param.patch
+0036-klocworks-double-free-complaints.patch
+0037-Don-t-skip-the-current-cdev.patch
+0038-klocworks-issue-with-memleak.patch

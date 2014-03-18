@@ -1,3 +1,14 @@
+thermald (1.1~rc2-11) unstable; urgency=medium
+
+  [Srinivas Pandruvada]
+  * Fix Kclockwork issue: gettext bounds
+  * Fix klockworks issue with strcasecmp NULL param
+  * Fix klockworks double free complaints
+  * Don't skip the current cdev 
+  * Fix klocworks issue with memleak
+
+ -- Colin King <colin.king@canonical.com>  Tue, 18 Mar 2014 10:55:11 +0000
+
 thermald (1.1~rc2-10) unstable; urgency=medium
 
   [Colin Ian King]
