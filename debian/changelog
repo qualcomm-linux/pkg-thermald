@@ -1,3 +1,9 @@
+thermald (1.1~rc2-12) unstable; urgency=medium
+
+  * Deny non root users to send system bus dbus messages (LP: #1314527)
+
+ -- Colin King <colin.king@canonical.com>  Wed, 30 Apr 2014 09:30:21 +0100
+
 thermald (1.1~rc2-11) unstable; urgency=medium
 
   [Srinivas Pandruvada]

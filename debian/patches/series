@@ -36,3 +36,4 @@
 0036-klocworks-double-free-complaints.patch
 0037-Don-t-skip-the-current-cdev.patch
 0038-klocworks-issue-with-memleak.patch
+0039-Deny-non-root-users-to-send-system-bus-dbus-messages.patch

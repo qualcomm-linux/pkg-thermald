@@ -1,0 +1,26 @@
+From 8ba5382f0b07c8d206fc18a5a33cd265362fd8bf Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Tue, 29 Apr 2014 09:51:29 -0700
+Subject: [PATCH] Deny non root users to send system bus dbus messages
+
+Change the default policy to deny non root users.
+---
+ data/org.freedesktop.thermald.conf | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data/org.freedesktop.thermald.conf b/data/org.freedesktop.thermald.conf
+index ff65452..41aa8d0 100644
+--- a/data/org.freedesktop.thermald.conf
++++ b/data/org.freedesktop.thermald.conf
+@@ -20,7 +20,7 @@
+         </policy>
+ 
+         <policy context="default">
+-                <allow send_destination="org.freedesktop.thermald"/>
++                <deny send_destination="org.freedesktop.thermald"/>
+                 <allow receive_sender="org.freedesktop.thermald"/>
+         </policy>
+ 
+-- 
+1.7.11.7
+
