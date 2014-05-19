@@ -1,7 +1,7 @@
-From 8ba5382f0b07c8d206fc18a5a33cd265362fd8bf Mon Sep 17 00:00:00 2001
+From bd8cf53026d3e014ed0e638a2aa526249fea021e Mon Sep 17 00:00:00 2001
 From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
 Date: Tue, 29 Apr 2014 09:51:29 -0700
-Subject: [PATCH] Deny non root users to send system bus dbus messages
+Subject: [PATCH 4/5] Deny non root users to send system bus dbus messages
 
 Change the default policy to deny non root users.
 ---
@@ -22,5 +22,5 @@ index ff65452..41aa8d0 100644
          </policy>
  
 -- 
-1.7.11.7
+2.0.0.rc0
 
