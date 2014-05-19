@@ -140,7 +140,12 @@ gboolean thd_dbus_interface_get_current_preference(PrefObject *obj,
 
 	cthd_preference thd_pref;
 	value_out = (gchar*) thd_pref.get_preference_cstr();
+	if (!value_out) {
+		g_free(pref_str);
+		return FALSE;
+	}
 	strncpy(pref_str, value_out, MAX_DBUS_REPLY_STR_LEN);
+	free(value_out);
 	thd_log_debug("thd_dbus_interface_get_current_preference out :%s\n",
 			pref_str);
 	*pref_out = pref_str;
@@ -222,13 +227,13 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
 	// Create a main loop that will dispatch callbacks
 	g_main_loop = main_loop = g_main_loop_new(NULL, FALSE);
 	if (main_loop == NULL) {
-		thd_log_error("Couldn't create GMainLoop:");
+		thd_log_error("Couldn't create GMainLoop:\n");
 		return THD_FATAL_ERROR;
 	}
 	if (dbus_enable) {
 		bus = dbus_g_bus_get(DBUS_BUS_SYSTEM, &error);
 		if (error != NULL) {
-			thd_log_error("Couldn't connect to session bus: %s:",
+			thd_log_error("Couldn't connect to session bus: %s:\n",
 					error->message);
 			return THD_FATAL_ERROR;
 		}
@@ -237,7 +242,7 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
 		bus_proxy = dbus_g_proxy_new_for_name(bus, DBUS_SERVICE_DBUS,
 				DBUS_PATH_DBUS, DBUS_INTERFACE_DBUS);
 		if (bus_proxy == NULL) {
-			thd_log_error("Failed to get a proxy for D-Bus:");
+			thd_log_error("Failed to get a proxy for D-Bus:\n");
 			return THD_FATAL_ERROR;
 		}
 
@@ -252,12 +257,12 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
 		}
 		thd_log_debug("RequestName returned %d.\n", result);
 		if (result != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
-			thd_log_error("Failed to get the primary well-known name:");
+			thd_log_error("Failed to get the primary well-known name:\n");
 			return THD_FATAL_ERROR;
 		}
 		value_obj = (PrefObject*) g_object_new(PREF_TYPE_OBJECT, NULL);
 		if (value_obj == NULL) {
-			thd_log_error("Failed to create one Value instance:");
+			thd_log_error("Failed to create one Value instance:\n");
 			return THD_FATAL_ERROR;
 		}
 
@@ -271,7 +276,7 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
 				"thermald ver %s: Ready to serve requests: Daemonizing..\n",
 				TD_DIST_VERSION);
 
-		if (daemon(0, 1) != 0) {
+		if (daemon(0, 0) != 0) {
 			thd_log_error("Failed to daemonize.\n");
 			return THD_FATAL_ERROR;
 		}
@@ -284,9 +289,9 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
 	// Initialize thermald objects
 	thd_engine->set_poll_interval(thd_poll_interval);
 	if (thd_engine->thd_engine_start(ignore_cpuid_check) != THD_SUCCESS) {
-		thd_log_error("THD engine start failed: ");
+		thd_log_error("THD engine start failed:\n");
 		closelog();
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// Start service requests on the D-Bus
@@ -342,8 +347,8 @@ int main(int argc, char *argv[]) {
 	{ NULL } };
 
 	if (!g_module_supported()) {
-		fprintf(stderr, _("GModules are not supported on your platform!\n"));
-		exit(1);
+		fprintf(stderr, "GModules are not supported on your platform!\n");
+		exit(EXIT_FAILURE);
 	}
 
 	/* Set locale to be able to use environment variables */
@@ -360,32 +365,32 @@ int main(int argc, char *argv[]) {
 	g_option_context_add_main_entries(opt_ctx, options, NULL);
 
 	g_option_context_set_summary(opt_ctx,
-			_(
-					"Thermal daemon monitors temperature sensors and decides the best action "
-							"based on the temperature readings and user preferences."));
+
+	"Thermal daemon monitors temperature sensors and decides the best action "
+			"based on the temperature readings and user preferences.");
 
 	success = g_option_context_parse(opt_ctx, &argc, &argv, NULL);
 	g_option_context_free(opt_ctx);
 
 	if (!success) {
 		fprintf(stderr,
-				_(
-						"Invalid option.  Please use --help to see a list of valid options.\n"));
-		exit(1);
+
+		"Invalid option.  Please use --help to see a list of valid options.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	if (show_version) {
 		fprintf(stdout, TD_DIST_VERSION "\n");
-		exit(0);
+		exit(EXIT_SUCCESS);
 	}
 
 	if (getuid() != 0 && !test_mode) {
-		fprintf(stderr, _("You must be root to run thermald!\n"));
-		exit(1);
+		fprintf(stderr, "You must be root to run thermald!\n");
+		exit(EXIT_FAILURE);
 	}
 	if (g_mkdir_with_parents(TDRUNDIR, 0755) != 0) {
 		fprintf(stderr, "Cannot create '%s': %s", TDRUNDIR, strerror(errno));
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	g_mkdir_with_parents(TDCONFDIR, 0755); // Don't care return value as directory
 	// may already exist

@@ -21,8 +21,8 @@
  * Author Name <Srinivas.Pandruvada@linux.intel.com>
  *
  * This is the main entry point for thermal daemon. This has main function
- * which parses command line arguments, set up dbus server and log related
- * functions.
+ * which parses command line arguments, setup logs and starts thermal
+ * engine.
  */
 
 #include "thermald.h"
@@ -30,8 +30,6 @@
 #include "thd_engine.h"
 #include "thd_engine_default.h"
 #include "thd_parse.h"
-
-#define THERMALD_DAEMON_NAME	"thermald"
 
 // poll mode
 int thd_poll_interval = 4; //in seconds
@@ -62,7 +60,7 @@ static void signal_handler(int sig) {
 		exit(EXIT_SUCCESS);
 		break;
 	default:
-		thd_log_warn("Unhandled signal %s", strsignal(sig));
+		thd_log_warn("Unhandled signal %s\n", strsignal(sig));
 		break;
 	}
 }
@@ -119,8 +117,8 @@ static void daemonize(char *rundir, char *pidfile) {
 	pid_file_handle = open(pidfile, O_RDWR | O_CREAT, 0600);
 	if (pid_file_handle == -1) {
 		/* Couldn't open lock file */
-		thd_log_info("Could not open PID lock file %s, exiting", pidfile);
-		exit(1);
+		thd_log_info("Could not open PID lock file %s, exiting\n", pidfile);
+		exit(EXIT_FAILURE);
 	}
 	/* Try to lock file */
 #ifdef LOCKF_SUPPORT
@@ -130,19 +128,19 @@ static void daemonize(char *rundir, char *pidfile) {
 #endif
 		/* Couldn't get lock on lock file */
 		thd_log_info("Couldn't get lock file %d\n", getpid());
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	thd_log_info("Thermal PID %d\n", getpid());
-	sprintf(str, "%d\n", getpid());
+	snprintf(str, sizeof(str), "%d\n", getpid());
 	write(pid_file_handle, str, strlen(str));
 }
 
 static void print_usage(FILE* stream, int exit_code) {
-	fprintf(stream, "Usage:  dptf_if options [ ... ]\n");
-	fprintf(stream, "  --help	Display this usage information.\n"
+	fprintf(stream, "Usage:  thermal-daemon options [ ... ]\n");
+	fprintf(stream, "  --help Display this usage information.\n"
 			"  --version Show version.\n"
 			"  --no-daemon No daemon.\n"
-			"  -poll-interval poll interval 0 to disable.\n"
+			"  --poll-interval poll interval 0 to disable.\n"
 			"  --exclusive_control to act as exclusive thermal controller. \n");
 
 	exit(exit_code);
@@ -153,16 +151,17 @@ int main(int argc, char *argv[]) {
 	int option_index = 0;
 	bool no_daemon = false;
 	bool exclusive_control = false;
-	bool dbus_enable = false;
 	bool test_mode = false;
 
 	const char* const short_options = "hvnp:de";
-	static struct option long_options[] = { { "help", no_argument, 0, 'h' }, {
-			"version", no_argument, 0, 'v' },
-			{ "no-daemon", no_argument, 0, 'n' }, { "poll-interval",
-					required_argument, 0, 'p' }, { "dbus-enable", no_argument,
-					0, 'd' }, { "exclusive_control", no_argument, 0, 'e' }, {
-					"test-mode", no_argument, 0, 't' }, { NULL, 0, NULL, 0 } };
+	static struct option long_options[] = {
+			{ "help", no_argument, 0, 'h' },
+			{ "version", no_argument, 0, 'v' },
+			{ "no-daemon", no_argument, 0, 'n' },
+			{ "poll-interval", required_argument, 0, 'p' },
+			{ "exclusive_control", no_argument, 0, 'e' },
+			{ "test-mode", no_argument, 0, 't' },
+			{ NULL, 0, NULL, 0 } };
 
 	if (argc > 1) {
 		while ((c = getopt_long(argc, argv, short_options, long_options,
@@ -173,14 +172,11 @@ int main(int argc, char *argv[]) {
 				print_usage(stdout, 0);
 				break;
 			case 'v':
-				fprintf(stdout, "1.03-01\n");
-				exit(0);
+				fprintf(stdout, "1.1\n");
+				exit(EXIT_SUCCESS);
 				break;
 			case 'n':
 				no_daemon = true;
-				break;
-			case 'd':
-				dbus_enable = true;
 				break;
 			case 'p':
 				thd_poll_interval = atoi(optarg);
@@ -201,14 +197,14 @@ int main(int argc, char *argv[]) {
 	}
 	if (getuid() != 0 && !test_mode) {
 		fprintf(stderr, "You must be root to run thermal daemon!\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 
 	if ((c = mkdir(TDRUNDIR, 0755)) != 0) {
 		if (errno != EEXIST) {
 			fprintf(stderr, "Cannot create '%s': %s\n", TDRUNDIR,
 					strerror(errno));
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 	}
 	mkdir(TDCONFDIR, 0755); // Don't care return value as directory
@@ -229,8 +225,8 @@ int main(int argc, char *argv[]) {
 
 	// Initialize thermald objects
 	if (thd_engine->thd_engine_start(false) != THD_SUCCESS) {
-		thd_log_error("thermald engine start failed: ");
-		exit(1);
+		thd_log_error("thermald engine start failed:\n");
+		exit(EXIT_FAILURE);
 	}
 #ifdef VALGRIND_TEST
 	// lots of STL lib function don't free memory
