@@ -34,8 +34,7 @@
 #include "thd_cdev_intel_pstate_driver.h"
 #include "thd_zone_surface.h"
 #include "thd_cdev_msr_rapl.h"
-
-#define ACTIVATE_SURFACE
+#include "thd_cdev_rapl_dram.h"
 
 // Default CPU cooling devices, which are not part of thermal sysfs
 // Since non trivial initialization is not supported, we init all fields even if they are not needed
@@ -55,7 +54,10 @@
 static cooling_dev_t cpu_def_cooling_devices[] = { { true, CDEV_DEF_BIT_UNIT_VAL
 		| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
 		0, ABSOULUTE_VALUE, 0, 0, 5, false, false, "intel_powerclamp", "", 4,
-		false, { 0.0, 0.0, 0.0 } } };
+		false, { 0.0, 0.0, 0.0 } }, { true, CDEV_DEF_BIT_UNIT_VAL
+		| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
+		0, ABSOULUTE_VALUE, 0, 100, 5, false, false, "LCD", "", 4, false, { 0.0,
+				0.0, 0.0 } } };
 
 cthd_engine_default::~cthd_engine_default() {
 	if (parser_init_done)
@@ -89,7 +91,9 @@ int cthd_engine_default::read_thermal_sensors() {
 	struct dirent *entry;
 	int sensor_mask = 0x0f;
 	cthd_sensor *sensor;
-	const std::string base_path = "/sys/devices/platform/";
+	const std::string base_path[] = { "/sys/devices/platform/",
+			"/sys/class/hwmon/" };
+	int i;
 
 	thd_read_default_thermal_sensors();
 	index = sensor_count;
@@ -99,40 +103,83 @@ int cthd_engine_default::read_thermal_sensors() {
 		// Force this to support async
 		sensor->set_async_capable(true);
 	}
+
+	sensor = search_sensor("x86_pkg_temp");
+	if (sensor) {
+		// Force this to support async
+		sensor->set_async_capable(true);
+	}
+
+	sensor = search_sensor("soc_dts0");
+	if (sensor) {
+		// Force this to support async
+		sensor->set_async_capable(true);
+	}
+
+	sensor = search_sensor("acpitz");
+	if (sensor) {
+		// Force this to support async
+		sensor->set_async_capable(true);
+	}
+
 	// Default CPU temperature zone
 	// Find path to read DTS temperature
-	if ((dir = opendir(base_path.c_str())) != NULL) {
-		while ((entry = readdir(dir)) != NULL) {
-			if (!strncmp(entry->d_name, "coretemp.", strlen("coretemp."))) {
-				int cnt = 0;
-				unsigned int mask = 0x1;
-				do {
-					if (sensor_mask & mask) {
-						std::stringstream temp_input_str;
-						std::string path = base_path + entry->d_name + "/";
-						csys_fs dts_sysfs(path.c_str());
-						temp_input_str << "temp" << cnt << "_input";
-						if (dts_sysfs.exists(temp_input_str.str())) {
-							cthd_sensor *sensor = new cthd_sensor(index,
-									base_path + entry->d_name + "/"
-											+ temp_input_str.str(),
-									temp_input_str.str(), SENSOR_TYPE_RAW);
-							if (sensor->sensor_update() != THD_SUCCESS) {
-								delete sensor;
-								closedir(dir);
-								return THD_ERROR;
-							}
-							sensors.push_back(sensor);
-							++index;
-						}
-					}
-					mask = (mask << 1);
-					cnt++;
-				} while (mask != 0);
+	for (i = 0; i < 2; ++i) {
+		if ((dir = opendir(base_path[i].c_str())) != NULL) {
+			while ((entry = readdir(dir)) != NULL) {
+				if (!strncmp(entry->d_name, "coretemp.", strlen("coretemp."))
+						|| !strncmp(entry->d_name, "hwmon", strlen("hwmon"))) {
 
+					// Check name
+					std::string name_path = base_path[i] + entry->d_name
+							+ "/name";
+					csys_fs name_sysfs(name_path.c_str());
+					if (!name_sysfs.exists()) {
+						thd_log_info("dts %s doesn't exist\n",
+								name_path.c_str());
+						continue;
+					}
+					std::string name;
+					if (name_sysfs.read("", name) < 0) {
+						thd_log_info("dts name read failed for %s\n",
+								name_path.c_str());
+						continue;
+					}
+					if (name != "coretemp")
+						continue;
+
+					int cnt = 0;
+					unsigned int mask = 0x1;
+					do {
+						if (sensor_mask & mask) {
+							std::stringstream temp_input_str;
+							std::string path = base_path[i] + entry->d_name
+									+ "/";
+							csys_fs dts_sysfs(path.c_str());
+							temp_input_str << "temp" << cnt << "_input";
+							if (dts_sysfs.exists(temp_input_str.str())) {
+								cthd_sensor *sensor = new cthd_sensor(index,
+										base_path[i] + entry->d_name + "/"
+												+ temp_input_str.str(), "hwmon",
+										SENSOR_TYPE_RAW);
+								if (sensor->sensor_update() != THD_SUCCESS) {
+									delete sensor;
+									closedir(dir);
+									return THD_ERROR;
+								}
+								sensors.push_back(sensor);
+								++index;
+							}
+						}
+						mask = (mask << 1);
+						cnt++;
+					} while (mask != 0);
+				}
 			}
+			closedir(dir);
 		}
-		closedir(dir);
+		if (index != sensor_count)
+			break;
 	}
 	if (index == sensor_count) {
 		// No coretemp sysfs exist, try hwmon
@@ -191,7 +238,9 @@ int cthd_engine_default::read_thermal_zones() {
 	int count = 0;
 	DIR *dir;
 	struct dirent *entry;
-	const std::string base_path = "/sys/devices/platform/";
+	const std::string base_path[] = { "/sys/devices/platform/",
+			"/sys/class/hwmon/" };
+	int i;
 
 	thd_read_default_thermal_zones();
 	count = zone_count;
@@ -201,41 +250,51 @@ int cthd_engine_default::read_thermal_zones() {
 		thd_log_info("zone cpu will be created \n");
 		// Default CPU temperature zone
 		// Find path to read DTS temperature
-		if ((dir = opendir(base_path.c_str())) != NULL) {
-			while ((entry = readdir(dir)) != NULL) {
-				if (!strncmp(entry->d_name, "coretemp.", strlen("coretemp."))) {
-					cthd_zone_cpu *zone = new cthd_zone_cpu(count,
-							base_path + entry->d_name + "/",
-							atoi(entry->d_name + strlen("coretemp.")));
-					if (zone->zone_update() == THD_SUCCESS) {
-						zone->set_zone_active();
-						zones.push_back(zone);
-						++count;
-						cpu_zone_created = true;
-					} else {
-						delete zone;
+		for (i = 0; i < 2; ++i) {
+			if ((dir = opendir(base_path[i].c_str())) != NULL) {
+				while ((entry = readdir(dir)) != NULL) {
+					if (!strncmp(entry->d_name, "coretemp.",
+							strlen("coretemp."))
+							|| !strncmp(entry->d_name, "hwmon",
+									strlen("hwmon"))) {
+
+						std::string name_path = base_path[i] + entry->d_name
+								+ "/name";
+						csys_fs name_sysfs(name_path.c_str());
+						if (!name_sysfs.exists()) {
+							thd_log_info("dts zone %s doesn't exist\n",
+									name_path.c_str());
+							continue;
+						}
+						std::string name;
+						if (name_sysfs.read("", name) < 0) {
+							thd_log_info("dts zone name read failed for %s\n",
+									name_path.c_str());
+							continue;
+						}
+						thd_log_info("%s->%s\n", name_path.c_str(),
+								name.c_str());
+						if (name != "coretemp")
+							continue;
+
+						cthd_zone_cpu *zone = new cthd_zone_cpu(count,
+								base_path[i] + entry->d_name + "/",
+								atoi(entry->d_name + strlen("coretemp.")));
+						if (zone->zone_update() == THD_SUCCESS) {
+							zone->set_zone_active();
+							zones.push_back(zone);
+							++count;
+							cpu_zone_created = true;
+						} else {
+							delete zone;
+						}
 					}
 				}
+				closedir(dir);
 			}
-			closedir(dir);
+			if (cpu_zone_created)
+				break;
 		}
-#ifdef ACTIVATE_SURFACE
-//	Enable when skin sensors are standardized
-	cthd_zone *surface;
-	surface = search_zone("Surface");
-
-	if (!surface || (surface && !surface->zone_active_status())) {
-		cthd_zone_surface *zone = new cthd_zone_surface(count);
-		if (zone->zone_update() == THD_SUCCESS) {
-			zones.push_back(zone);
-			++count;
-			zone->set_zone_active();
-		} else
-			delete zone;
-	} else {
-		thd_log_info("TSKN sensor was activated by config \n");
-	}
-#endif
 
 		if (!cpu_zone_created) {
 			// No coretemp sysfs exist, try hwmon
@@ -263,20 +322,29 @@ int cthd_engine_default::read_thermal_zones() {
 	// Add from XML thermal zone
 	if (!parser_init() && parser.platform_matched()) {
 		for (int i = 0; i < parser.zone_count(); ++i) {
+			bool activate;
 			thermal_zone_t *zone_config = parser.get_zone_dev_index(i);
 			if (!zone_config)
 				continue;
+			thd_log_debug("Look for Zone  [%s] \n", zone_config->type.c_str());
 			cthd_zone *zone = search_zone(zone_config->type);
 			if (zone) {
-				thd_log_info("Zone already present %s \n", zone_config->type.c_str());
+				activate = false;
+				thd_log_info("Zone already present %s \n",
+						zone_config->type.c_str());
 				for (unsigned int k = 0; k < zone_config->trip_pts.size();
 						++k) {
 					trip_point_t &trip_pt_config = zone_config->trip_pts[k];
+					thd_log_debug(
+							"Trip %d, temperature %d, Look for Search sensor %s\n",
+							k, trip_pt_config.temperature,
+							trip_pt_config.sensor_type.c_str());
 					cthd_sensor *sensor = search_sensor(
 							trip_pt_config.sensor_type);
 					if (!sensor) {
-						thd_log_error("XML zone: invalid sensor type \n");
-						// This will update the trip tempearture for the matching
+						thd_log_error("XML zone: invalid sensor type [%s]\n",
+								trip_pt_config.sensor_type.c_str());
+						// This will update the trip temperature for the matching
 						// trip type
 						if (trip_pt_config.temperature) {
 							cthd_trip_point trip_pt(zone->get_trip_count(),
@@ -289,24 +357,66 @@ int cthd_engine_default::read_thermal_zones() {
 						continue;
 					}
 					zone->bind_sensor(sensor);
-					cthd_trip_point trip_pt(zone->get_trip_count(),
-							trip_pt_config.trip_pt_type,
-							trip_pt_config.temperature, trip_pt_config.hyst,
-							zone->get_zone_index(), sensor->get_index(),
-							trip_pt_config.control_type);
-					// bind cdev
-					for (unsigned int j = 0;
-							j < trip_pt_config.cdev_trips.size(); ++j) {
-						cthd_cdev *cdev = search_cdev(
-								trip_pt_config.cdev_trips[j].type);
-						if (cdev) {
-							trip_pt.thd_trip_point_add_cdev(*cdev,
-									trip_pt_config.cdev_trips[j].influence);
+					if (trip_pt_config.temperature) {
+
+						cthd_trip_point trip_pt(zone->get_trip_count(),
+								trip_pt_config.trip_pt_type,
+								trip_pt_config.temperature, trip_pt_config.hyst,
+								zone->get_zone_index(), sensor->get_index(),
+								trip_pt_config.control_type);
+						// bind cdev
+						for (unsigned int j = 0;
+								j < trip_pt_config.cdev_trips.size(); ++j) {
+							cthd_cdev *cdev = search_cdev(
+									trip_pt_config.cdev_trips[j].type);
+							if (cdev) {
+								trip_pt.thd_trip_point_add_cdev(*cdev,
+										trip_pt_config.cdev_trips[j].influence,
+										trip_pt_config.cdev_trips[j].sampling_period);
+								zone->zone_cdev_set_binded();
+								activate = true;
+							}
+						}
+						zone->add_trip(trip_pt);
+					} else {
+						thd_log_debug("Trip temp == 0 is in zone %s \n",
+								zone_config->type.c_str());
+						// Try to find some existing non zero trips and associate the cdevs
+						// This is the way from an XML config a generic cooling device
+						// can be bound. For example from ACPI thermal relationships tables
+						for (unsigned int j = 0;
+								j < trip_pt_config.cdev_trips.size(); ++j) {
+							cthd_cdev *cdev = search_cdev(
+									trip_pt_config.cdev_trips[j].type);
+							if (!cdev) {
+								thd_log_info("cdev for type %s not found\n",
+										trip_pt_config.cdev_trips[j].type.c_str());
+							}
+							if (cdev) {
+								if (zone->bind_cooling_device(
+										trip_pt_config.trip_pt_type, 0, cdev,
+										trip_pt_config.cdev_trips[j].influence) == THD_SUCCESS) {
+									thd_log_debug(
+											"bind %s to trip to sensor %s\n",
+											cdev->get_cdev_type().c_str(),
+											sensor->get_sensor_type().c_str());
+									activate = true;
+								} else {
+									thd_log_debug(
+											"bind_cooling_device failed for cdev %s trip %s\n",
+											cdev->get_cdev_type().c_str(),
+											sensor->get_sensor_type().c_str());
+								}
+
+							}
 						}
 					}
-					zone->add_trip(trip_pt);
 				}
-				zone->set_zone_active();
+				if (activate) {
+					thd_log_debug("Activate zone %s\n",
+							zone->get_zone_type().c_str());
+					zone->set_zone_active();
+				}
 			} else {
 				cthd_zone_generic *zone = new cthd_zone_generic(count, i,
 						zone_config->type);
@@ -321,9 +431,31 @@ int cthd_engine_default::read_thermal_zones() {
 	}
 	zone_count = count;
 
+#ifdef ACTIVATE_SURFACE
+//	Enable when skin sensors are standardized
+	cthd_zone *surface;
+	surface = search_zone("Surface");
+
+	if (!surface || (surface && !surface->zone_active_status())) {
+		cthd_zone_surface *zone = new cthd_zone_surface(count);
+		if (zone->zone_update() == THD_SUCCESS) {
+			zones.push_back(zone);
+			++count;
+			zone->set_zone_active();
+		} else
+			delete zone;
+	} else {
+		thd_log_info("TSKN sensor was activated by config \n");
+	}
+#endif
+	zone_count = count;
+
+	def_binding.do_default_binding(cdevs);
+
 	for (unsigned int i = 0; i < zones.size(); ++i) {
 		zones[i]->zone_dump();
 	}
+
 	return THD_SUCCESS;
 }
 
@@ -467,6 +599,15 @@ int cthd_engine_default::read_cooling_devices() {
 		++cdev_cnt;
 	} else
 		delete cpu_freq_dev;
+
+	cthd_sysfs_cdev_rapl_dram *rapl_dram_dev = new cthd_sysfs_cdev_rapl_dram(
+			cdev_cnt, 0);
+	rapl_dram_dev->set_cdev_type("rapl_controller_dram");
+	if (rapl_dram_dev->update() == THD_SUCCESS) {
+		cdevs.push_back(rapl_dram_dev);
+		++cdev_cnt;
+	} else
+		delete rapl_dram_dev;
 
 	// Dump all cooling devices
 	for (unsigned i = 0; i < cdevs.size(); ++i) {

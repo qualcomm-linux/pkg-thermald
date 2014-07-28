@@ -1,5 +1,1 @@
 0001-thermald-conf.patch
-0002-Remove-rpmlint-warning-for-manual-page.patch
-0003-Remove-compile-warning.patch
-0004-Deny-non-root-users-to-send-system-bus-dbus-messages.patch
-0005-Adjust-for-coretemp-path-change.patch
