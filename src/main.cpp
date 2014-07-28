@@ -71,6 +71,8 @@ gboolean thd_dbus_interface_get_current_preference(PrefObject *obj,
 		gchar **pref_out, GError **error);
 gboolean thd_dbus_interface_set_user_max_temperature(PrefObject *obj,
 		gchar *zone_name, gchar *temperature, GError **error);
+gboolean thd_dbus_interface_set_user_passive_temperature(PrefObject *obj,
+		gchar *zone_name, gchar *temperature, GError **error);
 // This is a generated file, which expects the above prototypes
 #include "thd-dbus-interface.h"
 
@@ -176,6 +178,19 @@ gboolean thd_dbus_interface_set_user_max_temperature(PrefObject *obj,
 	return TRUE;
 }
 
+gboolean thd_dbus_interface_set_user_passive_temperature(PrefObject *obj,
+		gchar *zone_name, gchar *temperature, GError **error) {
+	thd_log_debug("thd_dbus_interface_set_user_passive_temperature %s:%s\n", zone_name,
+			temperature);
+	g_assert(obj != NULL);
+	cthd_preference thd_pref;
+	if (thd_engine->thd_engine_set_user_psv_temp(zone_name,
+			(char*) temperature) == THD_SUCCESS)
+		thd_engine->send_message(PREF_CHANGED, 0, NULL);
+
+	return TRUE;
+}
+
 // g_log handler. All logs will be directed here
 void thd_logger(const gchar *log_domain, GLogLevelFlags log_level,
 		const gchar *message, gpointer user_data) {
@@ -207,6 +222,26 @@ void thd_logger(const gchar *log_domain, GLogLevelFlags log_level,
 		syslog(syslog_priority, "%s", message);
 	} else
 		g_print("%s", message);
+}
+
+bool check_thermald_running() {
+	const char *lock_file = TDRUNDIR"/thermald.pid";
+	int pid_file_handle;
+
+	pid_file_handle = open(lock_file, O_RDWR | O_CREAT, 0600);
+	if (pid_file_handle == -1) {
+		/* Couldn't open lock file */
+		thd_log_error("Could not open PID lock file %s, exiting\n", lock_file);
+		return false;
+	}
+	/* Try to lock file */
+	if (lockf(pid_file_handle, F_TLOCK, 0) == -1) {
+		/* Couldn't get lock on lock file */
+		thd_log_error("Couldn't get lock file %d\n", getpid());
+		return true;
+	}
+
+	return false;
 }
 
 static GMainLoop *g_main_loop;
@@ -280,6 +315,12 @@ static int thd_dbus_server_proc(gboolean no_daemon) {
 			thd_log_error("Failed to daemonize.\n");
 			return THD_FATAL_ERROR;
 		}
+	}
+
+	if (check_thermald_running()) {
+		thd_log_fatal(
+				"An instance of thermald is already running, exiting ...\n");
+		exit(EXIT_FAILURE);
 	}
 
 	thd_engine = new cthd_engine_default();
