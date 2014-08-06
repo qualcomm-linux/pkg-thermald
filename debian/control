@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), dh-autoreconf, quilt, autoconf, libglib2.0-dev,
 Homepage: https://github.com/01org/thermal_daemon
 
 Package: thermald
-Architecture: linux-i386 linux-amd64
+Architecture: i386 amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Thermal monitoring and controlling daemon
  Thermal Daemon is a Linux daemon for monitoring and
