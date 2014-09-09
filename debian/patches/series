@@ -1,2 +1,4 @@
 0001-thermald-conf.patch
 0002-fix-manpage.patch
+0003-Fix-assumption-about-hwmon0.patch
+0004-Use-correct-nfds.patch
