@@ -2,3 +2,4 @@
 0002-fix-manpage.patch
 0003-Fix-assumption-about-hwmon0.patch
 0004-Use-correct-nfds.patch
+0005-RT-Linux-lockup-with-x86-package-temp-driver.patch
