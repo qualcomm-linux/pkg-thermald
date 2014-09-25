@@ -3,3 +3,4 @@
 0003-Fix-assumption-about-hwmon0.patch
 0004-Use-correct-nfds.patch
 0005-RT-Linux-lockup-with-x86-package-temp-driver.patch
+0006-data-thermald.conf-start-only-at-runlevels-2-3-4-5-L.patch

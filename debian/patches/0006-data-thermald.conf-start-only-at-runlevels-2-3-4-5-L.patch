@@ -1,0 +1,27 @@
+From 4989dd36f52d674deeed444d79979f275fde0727 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Thu, 25 Sep 2014 11:24:42 +0100
+Subject: [PATCH] data: thermald.conf: start only at runlevels 2,3,4,5 (LP:
+ #1294895)
+
+There is a slim chance that thermad can start before /sys is mounted,
+so only start it once we're in run levels 2 to 5
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ data/thermald.conf | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data/thermald.conf b/data/thermald.conf
+index 8d63f88..500f95f 100644
+--- thermald-1.3.orig/data/thermald.conf
++++ thermald-1.3/data/thermald.conf
+@@ -4,7 +4,7 @@
+ 
+ description     "thermal daemon"
+ 
+-start on started dbus
++start on runlevel [2345] and started dbus
+ stop on stopping dbus
+ 
+ #
