@@ -4,3 +4,7 @@
 0004-Use-correct-nfds.patch
 0005-RT-Linux-lockup-with-x86-package-temp-driver.patch
 0006-data-thermald.conf-start-only-at-runlevels-2-3-4-5-L.patch
+0007-Remove-redundant-re-checking-of-return-from-read_msr.patch
+0008-Improve-accuracy-of-unit_value-calculation.patch
+0009-Null-terminate-buffer-on-error-return-path.patch
+0010-Fix-resource-leak-on-file-descriptor-close-fd-on-err.patch

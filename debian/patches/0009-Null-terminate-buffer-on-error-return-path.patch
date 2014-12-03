@@ -1,0 +1,31 @@
+From 073543c0860f41a7fd1cc9447d9a63ab4ee819c8 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Tue, 2 Dec 2014 11:33:17 +0000
+Subject: [PATCH 09/10] Null terminate buffer on error return path
+
+Coverity Scan is being rather too paranoid about the error return
+path not null terminating a string. This is a false positive in the
+code, but it does make some sense to ensure the string is null
+terminated in case future callers to csys_fs::read_symbolic_link_value
+are sloppy in their error return checking.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/thd_sys_fs.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/thd_sys_fs.cpp b/src/thd_sys_fs.cpp
+index 4dc4d11..0b1db66 100644
+--- a/src/thd_sys_fs.cpp
++++ b/src/thd_sys_fs.cpp
+@@ -196,6 +196,7 @@ int csys_fs::read_symbolic_link_value(const std::string &path, char *buf,
+ 	std::string p = base_path + path;
+ 	int ret = ::readlink(p.c_str(), buf, len);
+ 	if (ret < 0) {
++		*buf = '\0';
+ 		thd_log_warn("read_symbolic_link %s\n", path.c_str());
+ 		return -errno;
+ 	}
+-- 
+2.1.3
+

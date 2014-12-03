@@ -1,3 +1,12 @@
+thermald (1.3-7) unstable; urgency=medium
+
+  * Remove redundant re-checking of return from read_msr()
+  * Improve accuracy of unit_value calculation
+  * Null terminate buffer on error return path
+  * Fix resource leak on file descriptor, close fd on error return paths
+
+ -- Colin King <colin.king@canonical.com>  Wed, 3 Dec 2014 09:25:11 +0000
+
 thermald (1.3-6) unstable; urgency=medium
 
   * data: thermald.conf: start only at runlevels 2,3,4,5 (LP: #1294895)
