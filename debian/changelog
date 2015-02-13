@@ -1,3 +1,9 @@
+thermald (1.3-9) unstable; urgency=medium
+
+  * Fix buffer overrun on a readlink
+
+ -- Colin King <colin.king@canonical.com>  Fri, 13 Feb 2015 13:13:13 +0000
+
 thermald (1.3-8) unstable; urgency=medium
 
   * Handle exit on H/W that does not support thermald (LP:#1325142)

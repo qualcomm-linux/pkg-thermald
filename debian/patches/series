@@ -8,3 +8,4 @@
 0008-Improve-accuracy-of-unit_value-calculation.patch
 0009-Null-terminate-buffer-on-error-return-path.patch
 0010-Fix-resource-leak-on-file-descriptor-close-fd-on-err.patch
+0011-Fix-buffer-overrun-on-readlink-call.patch
