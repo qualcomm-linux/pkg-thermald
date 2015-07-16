@@ -1,3 +1,22 @@
+thermald (1.4.3-1) unstable; urgency=medium
+
+  * Correct the version number
+  * cthd_engine::user_delete_zone: remove unused variable zone
+  * Remove unused variables
+  * Use correct format specifiers for size_t type
+  * Remove this_option_optind, it is not used and is redundant
+  * Don't assign a value to c if we don't use it again
+  * Fix type warning found by static analysis
+  * Reduce printing of "skip to reduce current state .."
+  * Removing several deprecated warning with new glib
+  * Fix marshalling array error
+  * Fix regression in exit via dbus message
+  * shell script update
+  * Added interface GetSensorTemperature
+  * New DBUS message to get sensor temperature at a given index.
+
+ -- Colin King <colin.king@canonical.com>  Thu, 16 Jul 2015 09:26:00 +0100
+
 thermald (1.4.2-1) unstable; urgency=medium
 
   * Sync up with version 1.4.2
