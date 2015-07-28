@@ -1,2 +1,5 @@
-0001-thermald-conf.patch
-0002-fix-manpage.patch
+0001-Fix-typo-in-option-ignore-cpuid-check.patch
+0002-Fix-spelling-mistake-in-man-page.patch
+0003-Fix-spelling-mistake-in-README.patch
+0004-Manual-fix-aligment-by-removing-extraneous-.TP-speci.patch
+0005-thermald.conf-limit-respawning-rate.patch

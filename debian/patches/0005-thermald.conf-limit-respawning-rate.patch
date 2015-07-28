@@ -1,0 +1,43 @@
+From b07ac17cf0fceeee674384c3127b51c3fc7d2386 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Mon, 27 Jul 2015 16:34:30 +0100
+Subject: [PATCH 5/5] thermald.conf: limit respawning rate
+
+Don't respawn thermald on an error and limit the number of respawns
+
+We've been carrying this small fix in Ubuntu for a while now and seems
+to fix re-spawning issues for some users, so I think it is well tested now.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ data/thermald.conf | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/data/thermald.conf b/data/thermald.conf
+index 500f95f..39a646a 100644
+--- a/data/thermald.conf
++++ b/data/thermald.conf
+@@ -7,10 +7,16 @@ description	"thermal daemon"
+ start on runlevel [2345] and started dbus
+ stop on stopping dbus
+ 
++#
++# don't respawn on error
++#
++normal exit 1
++
+ respawn
+ 
+-script
+-echo "Waiting for thermal zone and coretemp sysfs to be ready "
+-sleep 5
++#
++# consider something wrong if respawned 10 times in 1 minute
++#
++respawn limit 10 60
++
+ exec thermald --no-daemon --dbus-enable
+-end script
+-- 
+2.4.6
+

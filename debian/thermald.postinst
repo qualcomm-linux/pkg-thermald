@@ -1,18 +1,4 @@
 #!/bin/sh
 set -e
-# Automatically added by dh_installinit
-if [ -x "/etc/init.d/thermald" ] || [ -e "/etc/init/thermald.conf" ]; then
-	#
-	# LP#1325142
-	#
-	# thermald can exit with a failure of 1 if
-	# the system does not have thermal sensors.
-	# Work around this by exiting with zero
-	# as "failures" are not critical in this
-	# respect
-	#
-        invoke-rc.d thermald start || true
-	exit 0
-fi
 
 #DEBHELPER#
