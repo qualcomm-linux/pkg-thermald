@@ -3,3 +3,4 @@
 0003-Fix-spelling-mistake-in-README.patch
 0004-Manual-fix-aligment-by-removing-extraneous-.TP-speci.patch
 0005-thermald.conf-limit-respawning-rate.patch
+0006-data-stop-failed-message-on-VMs-and-H-W-that-thermal.patch
