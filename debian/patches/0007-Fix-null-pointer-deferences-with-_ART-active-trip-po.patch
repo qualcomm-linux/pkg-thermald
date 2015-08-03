@@ -1,0 +1,35 @@
+From ddc8b63e537b2e0d7f17b6c52cfe42606769a577 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Mon, 3 Aug 2015 11:19:25 +0100
+Subject: [PATCH 7/9] Fix null pointer deferences with _ART active trip points
+ (LP: #1480821)
+
+We've been seeing null pointer deferences on some Intel devices that
+support _TRT and _ART ACPI objects.  This is due to a typo in
+parse_target_devices() where a non-existant trt object is being pushed
+onto a trt vector instead of the art vector.  This causes a NULL pointer
+deference in add_active_trip_point() when performing the following:
+
+  union art_object *object = (union art_object *) rel_obj.art_objects[j];
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/thd_trt_art_reader.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thd_trt_art_reader.cpp b/src/thd_trt_art_reader.cpp
+index 9febbe0..52a2bd0 100644
+--- a/src/thd_trt_art_reader.cpp
++++ b/src/thd_trt_art_reader.cpp
+@@ -422,7 +422,7 @@ void cthd_acpi_rel::parse_target_devices() {
+ 				object_finder(art[i].acpi_art_entry.target_device));
+ 
+ 		if (find_iter == rel_list.end()) {
+-			rel_obj.art_objects.push_back(&trt[i]);
++			rel_obj.art_objects.push_back(&art[i]);
+ 			rel_list.push_back(rel_obj);
+ 		} else
+ 			find_iter->art_objects.push_back(&art[i]);
+-- 
+2.5.0
+

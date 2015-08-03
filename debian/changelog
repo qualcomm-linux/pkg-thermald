@@ -1,3 +1,11 @@
+thermald (1.4.3-4) unstable; urgency=medium
+
+  * Fix null pointer deferences with _ART active trip points (LP: #1480821)
+  * Re-enable lockfile (LP:# 1480892)
+  * Report multiple instances of thermald with thd_log_fatal (LP: #1432220)
+
+ -- Colin King <colin.king@canonical.com>  Mon, 3 Aug 2015 18:47:00 +0100
+
 thermald (1.4.3-3) unstable; urgency=medium
 
   * Suppress systemd failed service messages (e.g. on VMs) (LP:#1480182)
