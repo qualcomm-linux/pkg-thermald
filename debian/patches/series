@@ -7,3 +7,5 @@
 0007-Fix-null-pointer-deferences-with-_ART-active-trip-po.patch
 0008-Re-enable-lockfile-LP-1480892.patch
 0009-Report-multiple-instances-of-thermald-with-thd_log_f.patch
+0010-cdev-RAPL-turn-some-info-messages-to-debug-to-reduce.patch
+0011-cdev-turn-some-info-messages-to-debug-to-reduce-sysl.patch

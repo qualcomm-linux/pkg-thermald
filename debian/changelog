@@ -1,3 +1,10 @@
+thermald (1.4.3-5) unstable; urgency=medium
+
+  * cdev: turn some info messages to debug to reduce syslog spamming
+  * cdev: RAPL: turn some info messages to debug to reduce syslog spamming
+
+ -- Colin King <colin.king@canonical.com>  Fri, 21 Aug 2015 11:48:00 -0700
+
 thermald (1.4.3-4) unstable; urgency=medium
 
   * Fix null pointer deferences with _ART active trip points (LP: #1480821)
