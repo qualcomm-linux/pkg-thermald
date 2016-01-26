@@ -1,3 +1,14 @@
+thermald (1.4.3-6) unstable; urgency=medium
+
+  * Fix frequency scaling issue on specific Intel CPUs (LP: #1480349)
+    - roll earlier patches that allow us to cleanly patch the issue
+    - Error recovery when sysfs attrib read fails
+    - Remove wild card for loading
+    - Move parser init to thd_engine
+    - Add white list of the cpu ids
+
+ -- Colin King <colin.king@canonical.com>  Tue, 26 Jan 2016 10:15:11 +0000
+
 thermald (1.4.3-5) unstable; urgency=medium
 
   * cdev: turn some info messages to debug to reduce syslog spamming

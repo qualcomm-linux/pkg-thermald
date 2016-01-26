@@ -1,0 +1,26 @@
+From 6749427098434ccad81fa8c5f2a3e102fc1644f7 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Mon, 25 Jan 2016 13:25:08 -0800
+Subject: [PATCH 201/203] Remove wild card for loading
+
+This is an example config, so don't let it load.
+---
+ data/thermal-conf.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data/thermal-conf.xml b/data/thermal-conf.xml
+index c24675e..837bc78 100644
+--- a/data/thermal-conf.xml
++++ b/data/thermal-conf.xml
+@@ -8,7 +8,7 @@ use "man thermal-conf.xml" for details
+ <ThermalConfiguration>
+ <Platform>
+ 	<Name>Generic X86 Laptop Device</Name>
+-	<ProductName>*</ProductName>
++	<ProductName>EXAMPLE_SYSTEM</ProductName>
+ 	<Preference>QUIET</Preference>
+ 	<ThermalSensors>
+ 		<ThermalSensor>
+-- 
+2.7.0.rc3
+

@@ -9,3 +9,11 @@
 0009-Report-multiple-instances-of-thermald-with-thd_log_f.patch
 0010-cdev-RAPL-turn-some-info-messages-to-debug-to-reduce.patch
 0011-cdev-turn-some-info-messages-to-debug-to-reduce-sysl.patch
+0100-Remove-trailing-from-THD-engine-failure-message.patch
+0101-Remove-from-No-coretemp-sysfs-found.patch
+0102-Add-new-option-for-config-file.patch
+0103-Support-target-state.patch
+0200-Error-recovery-when-sysfs-attrib-read-fails.patch
+0201-Remove-wild-card-for-loading.patch
+0202-Move-parser-init-to-thd_engine.patch
+0203-Add-white-list-of-the-cpu-ids.patch

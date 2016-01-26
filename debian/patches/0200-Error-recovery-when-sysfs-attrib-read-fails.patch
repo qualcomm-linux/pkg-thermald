@@ -1,0 +1,27 @@
+From ba4fe1e7bb77d09530544cda860fba559603ec83 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Mon, 25 Jan 2016 13:22:39 -0800
+Subject: [PATCH 200/203] Error recovery when sysfs attrib read fails
+
+When can't read sysfs file, catch all exceptions. The current
+ifstream exceptions are not enough.
+---
+ src/thd_sys_fs.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thd_sys_fs.cpp b/src/thd_sys_fs.cpp
+index 0b1db66..5da8b00 100644
+--- a/src/thd_sys_fs.cpp
++++ b/src/thd_sys_fs.cpp
+@@ -163,7 +163,7 @@ int csys_fs::read(const std::string &path, std::string &buf) {
+ 		}
+ 		f.close();
+ #ifndef ANDROID
+-	} catch (const std::ifstream::failure& e) {
++	} catch (...) {
+ 		thd_log_warn("csys_fs::read exception %s\n", path.c_str());
+ 
+ 		ret = -EIO;
+-- 
+2.7.0.rc3
+
