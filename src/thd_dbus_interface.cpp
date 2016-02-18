@@ -205,7 +205,14 @@ gboolean thd_dbus_interface_reinit(PrefObject *obj, GError **error) {
 	sleep(2);
 	if (thd_engine->get_control_mode() == EXCLUSIVE)
 		exclusive_control = true;
-	if (thd_engine_create_default_engine(true, exclusive_control) != THD_SUCCESS) {
+
+	std::string config_file = thd_engine->get_config_file();
+	const char *conf_file = NULL;
+	if (!config_file.empty())
+		conf_file = config_file.c_str();
+
+	if (thd_engine_create_default_engine(true, exclusive_control,
+			conf_file) != THD_SUCCESS) {
 		return FALSE;
 	}
 
@@ -526,6 +533,12 @@ gboolean thd_dbus_interface_add_cooling_device(PrefObject *obj,
 
 	thd_log_debug("thd_dbus_interface_add_cooling_device %s\n",
 			(char*) cdev_name);
+
+	// Using a device in /etc is a security issue
+	if ((strlen(path) >= strlen("/etc")) && !strncmp(path, "/etc",
+			strlen("/etc")))
+			return FALSE;
+
 	ret = thd_engine->user_add_cdev(cdev_name, path, min_state, max_state,
 			step);
 	if (ret == THD_SUCCESS)
@@ -538,6 +551,11 @@ gboolean thd_dbus_interface_update_cooling_device(PrefObject *obj,
 		gchar *cdev_name, gchar *path, gint min_state, gint max_state,
 		gint step, GError **error) {
 	g_assert(obj != NULL);
+
+	// Using a device in /etc is a security issue
+	if ((strlen(path) >= strlen("/etc")) && !strncmp(path, "/etc",
+			strlen("/etc")))
+			return FALSE;
 
 	return thd_dbus_interface_add_cooling_device(obj, cdev_name, path,
 			min_state, max_state, step, error);

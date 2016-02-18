@@ -73,6 +73,16 @@ Use "sudo stop thermald" to stop
 
 Releases
 
+Release 1.5
+- Default warning level increase so that doesn't print much in logs
+- Add new feature to set specific target state on reaching a threshold,
+this allows multiple thresholds (trips)
+- Android update for build
+- Additional backlight devices
+- New option to specify config file via command line
+- Prevent adding cooling device in /etc via dbus
+- Whitelist of processor models, to avoid startup on server platforms
+
 Release 1.4.3
 - One new dbus message to get temp
 - Fixes to prevent warnings
@@ -176,7 +186,7 @@ Version 0.3
 - Added P states t states turbo states as the cooling methods
 - No longer depend on any thermal sysfs, zone cooling device by default
 - Uses DTS core temperature and p/turbo/t states to cool system
-- By default only will use DTS core temerature and p/turbo/t states only
+- By default only will use DTS core temperature and p/turbo/t states only
 - All the previous controls based on the zones/cdevs and XML configuration is only done, when activated via command line
 - The set points are calculated and stored in a config file when it hits thermal threshold and adjusted based
 on slope and angular increments to dynamically adjust set point

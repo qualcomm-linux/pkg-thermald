@@ -1,3 +1,10 @@
+thermald (1.5-1) unstable; urgency=medium
+
+  * Sync with upstream 1.5 release
+    - remove debain/patches as these are all in the upstream release now
+
+ -- Colin King <colin.king@canonical.com>  Thu, 18 Feb 2016 00:17:12 +0000
+
 thermald (1.4.3-6) unstable; urgency=medium
 
   * Fix frequency scaling issue on specific Intel CPUs (LP: #1480349)

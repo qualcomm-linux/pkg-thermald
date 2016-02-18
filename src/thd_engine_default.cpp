@@ -33,7 +33,6 @@
 #include "thd_cdev_rapl.h"
 #include "thd_cdev_intel_pstate_driver.h"
 #include "thd_zone_surface.h"
-#include "thd_cdev_msr_rapl.h"
 #include "thd_cdev_rapl_dram.h"
 #include "thd_sensor_virtual.h"
 #include "thd_cdev_backlight.h"
@@ -62,29 +61,6 @@ static cooling_dev_t cpu_def_cooling_devices[] = { { true, CDEV_DEF_BIT_UNIT_VAL
 				0.0, 0.0 } } };
 
 cthd_engine_default::~cthd_engine_default() {
-	if (parser_init_done)
-		parser.parser_deinit();
-}
-
-int cthd_engine_default::parser_init() {
-	if (parser_init_done)
-		return THD_SUCCESS;
-	if (parser.parser_init() == THD_SUCCESS) {
-		if (parser.start_parse() == THD_SUCCESS) {
-			parser.dump_thermal_conf();
-			parser_init_done = true;
-			return THD_SUCCESS;
-		}
-	}
-
-	return THD_ERROR;
-}
-
-void cthd_engine_default::parser_deinit() {
-	if (parser_init_done) {
-		parser.parser_deinit();
-		parser_init_done = false;
-	}
 }
 
 int cthd_engine_default::read_thermal_sensors() {
@@ -185,7 +161,7 @@ int cthd_engine_default::read_thermal_sensors() {
 	}
 	if (index == current_sensor_index) {
 		// No coretemp sysfs exist, try hwmon
-		thd_log_warn("Thermal DTS: No coretemp sysfs found!!\n");
+		thd_log_warn("Thermal DTS: No coretemp sysfs found\n");
 	}
 	current_sensor_index = index;
 	// Add from XML sensor config
@@ -361,7 +337,8 @@ int cthd_engine_default::read_thermal_zones() {
 							if (cdev) {
 								trip_pt.thd_trip_point_add_cdev(*cdev,
 										trip_pt_config.cdev_trips[j].influence,
-										trip_pt_config.cdev_trips[j].sampling_period);
+										trip_pt_config.cdev_trips[j].sampling_period,
+										trip_pt_config.cdev_trips[j].target_state);
 								zone->zone_cdev_set_binded();
 								activate = true;
 							}
@@ -385,7 +362,8 @@ int cthd_engine_default::read_thermal_zones() {
 								if (zone->bind_cooling_device(
 										trip_pt_config.trip_pt_type, 0, cdev,
 										trip_pt_config.cdev_trips[j].influence,
-										trip_pt_config.cdev_trips[j].sampling_period) == THD_SUCCESS) {
+										trip_pt_config.cdev_trips[j].sampling_period,
+										trip_pt_config.cdev_trips[j].target_state) == THD_SUCCESS) {
 									thd_log_debug(
 											"bind %s to trip to sensor %s\n",
 											cdev->get_cdev_type().c_str(),
@@ -444,9 +422,9 @@ int cthd_engine_default::read_thermal_zones() {
 		thd_log_info("No Thermal Zones found \n");
 		return THD_FATAL_ERROR;
 	}
-
+#ifdef AUTO_DETECT_RELATIONSHIP
 	def_binding.do_default_binding(cdevs);
-
+#endif
 	for (unsigned int i = 0; i < zones.size(); ++i) {
 		zones[i]->zone_dump();
 	}
@@ -541,17 +519,6 @@ int cthd_engine_default::read_cooling_devices() {
 		++current_cdev_index;
 	} else {
 		delete rapl_dev;
-		if (processor_id_match()) {
-			// RAPL control via MSR
-			cthd_cdev_rapl_msr *rapl_msr_dev = new cthd_cdev_rapl_msr(
-					current_cdev_index, 0);
-			rapl_msr_dev->set_cdev_type("rapl_controller");
-			if (rapl_msr_dev->update() == THD_SUCCESS) {
-				cdevs.push_back(rapl_msr_dev);
-				++current_cdev_index;
-			} else
-				delete rapl_msr_dev;
-		}
 	}
 	// Add Intel P state driver as cdev
 	cthd_intel_p_state_cdev *pstate_dev = new cthd_intel_p_state_cdev(
@@ -621,15 +588,18 @@ int cthd_engine_default::read_cooling_devices() {
 cthd_engine *thd_engine;
 
 int thd_engine_create_default_engine(bool ignore_cpuid_check,
-		bool exclusive_control) {
+		bool exclusive_control, const char *conf_file) {
 	thd_engine = new cthd_engine_default();
 	if (exclusive_control)
 		thd_engine->set_control_mode(EXCLUSIVE);
 
 	// Initialize thermald objects
 	thd_engine->set_poll_interval(thd_poll_interval);
+	if (conf_file)
+		thd_engine->set_config_file(conf_file);
+
 	if (thd_engine->thd_engine_start(ignore_cpuid_check) != THD_SUCCESS) {
-		thd_log_error("THD engine start failed:\n");
+		thd_log_error("THD engine start failed\n");
 		return THD_ERROR;
 	}
 
