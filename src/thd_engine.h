@@ -100,6 +100,7 @@ private:
 	int poll_interval_sec;
 	cthd_preference thd_pref;
 	unsigned int poll_sensor_mask;
+	std::string config_file;
 
 	pthread_t thd_engine;
 	pthread_attr_t thd_attr;
@@ -113,6 +114,7 @@ private:
 	int poll_fd_cnt;
 	bool rt_kernel;
 	cthd_kobj_uevent kobj_uevent;
+	bool parser_init_done;
 
 	int proc_message(message_capsul_t *msg);
 	void process_pref_change();
@@ -208,6 +210,12 @@ public:
 	int get_preference() {
 		return preference;
 	}
+	void set_config_file(std::string conf_file) {
+		config_file = conf_file;
+	}
+	std::string get_config_file() {
+		return config_file;
+	}
 	cthd_zone *search_zone(std::string name);
 	cthd_cdev *search_cdev(std::string name);
 	cthd_sensor *search_sensor(std::string name);
@@ -254,6 +262,9 @@ public:
 	int user_add_cdev(std::string cdev_name, std::string cdev_path,
 			int min_state, int max_state, int step);
 	cthd_cdev *user_get_cdev(unsigned int index);
+
+	int parser_init();
+	void parser_deinit();
 };
 
 #endif /* THD_ENGINE_H_ */
