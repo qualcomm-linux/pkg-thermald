@@ -1,3 +1,11 @@
+thermald (1.5-2) unstable; urgency=medium
+
+  * Initialise bios_locked; may lead to random behaviour (LP: #1547594)
+    - bios_locked should be initialised to false so that RAPL is
+      enabled by default.
+
+ -- Colin King <colin.king@canonical.com>  Fri, 19 Feb 2016 17:08:36 +0000
+
 thermald (1.5-1) unstable; urgency=medium
 
   * Sync with upstream 1.5 release

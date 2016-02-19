@@ -1,0 +1,34 @@
+From 833245725494eb26a1c61ca6f1a9db90599ae71b Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Fri, 19 Feb 2016 10:03:31 +0000
+Subject: [PATCH] Initialize bios_locked to false
+
+CoverityScan picked up this bug:
+
+** CID 11165:  Uninitialized members  (UNINIT_CTOR)
+/src/thd_cdev_rapl.h: 60 in cthd_sysfs_cdev_rapl::
+  cthd_sysfs_cdev_rapl(unsigned int, int)()
+
+Initialize bios_locked to false.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/thd_cdev_rapl.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thd_cdev_rapl.h b/src/thd_cdev_rapl.h
+index 11f0c2c..f3a1f64 100644
+--- a/src/thd_cdev_rapl.h
++++ b/src/thd_cdev_rapl.h
+@@ -56,7 +56,7 @@ public:
+ 					"/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/"), phy_max(
+ 					0), package_id(package), constraint_index(0), dynamic_phy_max_enable(
+ 					false), pl0_max_pwr(0), pl0_min_pwr(0), pl0_min_window(0), pl0_step_pwr(
+-					0) {
++					0), bios_locked(false) {
+ 	}
+ 	virtual void set_curr_state(int state, int arg);
+ 	virtual int get_curr_state();
+-- 
+2.7.0
+
