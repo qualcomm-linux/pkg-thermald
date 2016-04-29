@@ -1,3 +1,11 @@
+thermald (1.5-3) unstable; urgency=medium
+
+  * Update Standards-Version to 3.9.8
+  * Fix incorrect path to thermald config file (LP: #1568123)
+    - upstream commit 4a890d7e173678644882e6b863f3650e30d33052
+
+ -- Colin King <colin.king@canonical.com>  Fri, 29 Apr 2016 07:07:57 +0000
+
 thermald (1.5-2) unstable; urgency=medium
 
   * Initialise bios_locked; may lead to random behaviour (LP: #1547594)
