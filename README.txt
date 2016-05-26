@@ -73,6 +73,15 @@ Use "sudo stop thermald" to stop
 
 Releases
 
+Release 1.5.3
+- PCH sensor support
+
+Release 1.5.2
+- Security bug for bios lock fix
+
+Release 1.5.1
+- Regression fix for the default config file location
+
 Release 1.5
 - Default warning level increase so that doesn't print much in logs
 - Add new feature to set specific target state on reaching a threshold,
