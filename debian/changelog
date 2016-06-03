@@ -1,3 +1,10 @@
+thermald (1.5.3-2) unstable; urgency=medium
+
+  * Fix spelling mistake in thermal-conf man page (Closes: #826178)
+    - change "confirms" to "conforms"
+
+ -- Colin King <colin.king@canonical.com>  Fri, 3 Jun 2016 08:23:11 +0100
+
 thermald (1.5.3-1) unstable; urgency=medium
 
   * Sync source to upstream 1.5.3 head
