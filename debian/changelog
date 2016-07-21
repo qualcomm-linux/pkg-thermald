@@ -1,3 +1,20 @@
+thermald (1.5.3-3) unstable; urgency=medium
+
+  * Minor upstream fix and add in model throttling for SoFIA-3GR:
+    - thd_cdev_modem: ensure private variables in class are
+      initialized.  throttling and online are not initialized, so
+      set the appropriately in the constructor.
+    - Added support for modem throttling on SoFIA-3GR:
+      Added modem as a cooling device for PA (coretemp4) on 3GR.
+      While temp would be read from sysfs device files, cooling
+      would be initiated through telephony framework, via D-Bus.
+      Telephony framework would notify thermald via D-Bus signals,
+      any change in throttling state.
+      thermald would invoke D-Bus methods in telephony framework
+      ONLY to check if its supported and to change the state.
+
+ -- Colin King <colin.king@canonical.com>  Thu, 21 Jul 2016 08:22:36 +0100
+
 thermald (1.5.3-2) unstable; urgency=medium
 
   * Fix spelling mistake in thermal-conf man page (Closes: #826178)

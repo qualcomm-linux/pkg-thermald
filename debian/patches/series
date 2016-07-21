@@ -1,2 +1,4 @@
 0001-Downgrade-error.patch
 0002-manual-thermal-conf.xml-fix-typos-confirm-conform.patch
+0003-Added-support-for-modem-throttling-on-SoFIA-3GR.patch
+0004-thermald-thd_cdev_modem-ensure-private-variables-in-.patch
