@@ -1,3 +1,13 @@
+thermald (1.5.4-2) unstable; urgency=medium
+
+  * upstream fix 9da073098f7 ("Fix added to improve modem throttling")
+    - handle crash at boot-up
+    - remove dependency on ofono
+    - remove hard-coding of sleep value
+    - enusre throttling works fine when ofono/RIL logs enabled
+
+ -- Colin King <colin.king@canonical.com>  Tue, 3 Jan 2017 09:11:00 +0000
+
 thermald (1.5.4-1) unstable; urgency=medium
 
   * sync with latest upstream release
