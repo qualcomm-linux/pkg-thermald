@@ -1,1 +1,3 @@
 0001-Fix-added-to-improve-modem-throttling.patch
+0002-check-for-recv-failure-and-ensure-buffer-is-null-ter.patch
+0003-Remove-auto-adjusted-max-temp.patch

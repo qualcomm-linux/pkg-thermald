@@ -1,3 +1,13 @@
+thermald (1.5.4-3) unstable; urgency=medium
+
+  * upstream fix 7f83ada8133 ("check for recv failure and ensure "
+    "buffer is null terminated")
+    - fixes potential buffer overrun
+  * upstream fix 53154fd496a ("Remove auto adjusted max temp")
+    - addresses aggressive over-throttling on some H/W (LP: #1600599)
+
+ -- Colin King <colin.king@canonical.com>  Fri, 10 Feb 2017 15:19:11 +0000
+
 thermald (1.5.4-2) unstable; urgency=medium
 
   * upstream fix 9da073098f7 ("Fix added to improve modem throttling")

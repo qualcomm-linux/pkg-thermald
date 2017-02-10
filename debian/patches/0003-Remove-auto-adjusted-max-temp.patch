@@ -1,0 +1,71 @@
+From 53154fd496a1f924b0eec6557ccc8bb42fd1be93 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Thu, 9 Feb 2017 18:03:27 -0800
+Subject: [PATCH] Remove auto adjusted max temp
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+For some device where temperature can't be controlled the auto
+adjusted max will go on reducing max to compensate but it will
+hurt performance. Instead rely on passive control at BIOS defined
+max or user defined passive control.
+Disable till better algorithm is designed to compensate.
+---
+ src/thd_zone_cpu.cpp | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/src/thd_zone_cpu.cpp b/src/thd_zone_cpu.cpp
+index 9ed0767..c89cf3b 100644
+--- a/src/thd_zone_cpu.cpp
++++ b/src/thd_zone_cpu.cpp
+@@ -150,12 +150,14 @@ int cthd_zone_cpu::parse_cdev_order() {
+ 		if ((ret = parser.start_parse()) == THD_SUCCESS) {
+ 			ret = parser.get_order_list(order_list);
+ 			if (ret == THD_SUCCESS) {
++#ifdef DEF_MAX_TRIP
+ 				cthd_trip_point trip_pt_max(trip_point_cnt, MAX, set_point,
+ 						def_hystersis, index, DEFAULT_SENSOR_ID);
+ 				trip_pt_max.thd_trip_point_set_control_type(SEQUENTIAL);
+ 				load_cdev_xml(trip_pt_max, order_list);
+ 				trip_points.push_back(trip_pt_max);
+ 				trip_point_cnt++;
++#endif
+ 				cthd_trip_point trip_pt_passive(trip_point_cnt, PASSIVE,
+ 						max_temp, def_hystersis, index, DEFAULT_SENSOR_ID);
+ 				trip_pt_passive.thd_trip_point_set_control_type(SEQUENTIAL);
+@@ -181,25 +183,31 @@ int cthd_zone_cpu::read_trip_points() {
+ 		thd_log_info("CDEVS order specified in thermal-cpu-cdev-order.xml\n");
+ 		return THD_SUCCESS;
+ 	}
++#ifdef DEF_MAX_TRIP
+ 	cthd_trip_point trip_pt_max(trip_point_cnt, MAX, set_point, def_hystersis,
+ 			index, DEFAULT_SENSOR_ID);
++	trip_pt_max.thd_trip_point_set_control_type(SEQUENTIAL);
+ 	trip_point_cnt++;
++#endif
+ 	cthd_trip_point trip_pt_passive(trip_point_cnt, PASSIVE, max_temp,
+ 			def_hystersis, index, DEFAULT_SENSOR_ID);
+ 	trip_pt_passive.thd_trip_point_set_control_type(SEQUENTIAL);
+-	trip_pt_max.thd_trip_point_set_control_type(SEQUENTIAL);
+ 	i = 0;
+ 	while (def_cooling_devices[i]) {
+ 		cdev = thd_engine->search_cdev(def_cooling_devices[i]);
+ 		if (cdev) {
++#ifdef DEF_MAX_TRIP
+ 			trip_pt_max.thd_trip_point_add_cdev(*cdev,
+ 					cthd_trip_point::default_influence);
++#endif
+ 			trip_pt_passive.thd_trip_point_add_cdev(*cdev,
+ 					cthd_trip_point::default_influence);
+ 		}
+ 		++i;
+ 	}
++#ifdef DEF_MAX_TRIP
+ 	trip_points.push_back(trip_pt_max);
++#endif
+ 	trip_points.push_back(trip_pt_passive);
+ 	trip_point_cnt++;
+ 
+-- 
+2.10.2
+
