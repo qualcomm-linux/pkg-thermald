@@ -1,3 +1,10 @@
+thermald (1.5.4-4) unstable; urgency=medium
+
+  * fix spamming of logs when writes file (LP: #1656528)
+    - patch from  Srinivas Pandruvada at Intel, not yet mainline
+
+ -- Colin King <colin.king@canonical.com>  Thu, 23 Feb 2017 09:26:23 +0000
+
 thermald (1.5.4-3) unstable; urgency=medium
 
   * upstream fix 7f83ada8133 ("check for recv failure and ensure "
