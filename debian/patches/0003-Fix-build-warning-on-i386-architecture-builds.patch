@@ -1,0 +1,35 @@
+From 6a2344b4a55acc0cba356d0f7c521c0cdb6632e0 Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Mon, 13 Mar 2017 16:40:42 +0000
+Subject: [PATCH 3/3] Fix build warning on i386 architecture builds
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+print out size as size_t type, use %zu format specifier to
+fix build warning on 32 bit i386:
+
+/usr/include/glib-2.0/glib/gmessages.h:342:43: warning: format '%lu'
+expects argument of type 'long unsigned int', but argument 4 has
+type 'std::vector<zone_trip_limits_t>::size_type {aka unsigned int}'
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/thd_cdev.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thd_cdev.cpp b/src/thd_cdev.cpp
+index 6ee09ee..4850860 100644
+--- a/src/thd_cdev.cpp
++++ b/src/thd_cdev.cpp
+@@ -199,7 +199,7 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
+ 			}
+ 		}
+ 	} else {
+-		thd_log_debug("zone_trip_limits.size() %lu\n", zone_trip_limits.size());
++		thd_log_debug("zone_trip_limits.size() %zu\n", (size_t)zone_trip_limits.size());
+ 		if (zone_trip_limits.size() > 0) {
+ 			int length = zone_trip_limits.size();
+ 			int _target_value = TRIP_PT_INVALID_TARGET_STATE;
+-- 
+2.10.2
+
