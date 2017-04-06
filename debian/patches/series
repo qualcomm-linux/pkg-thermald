@@ -1,3 +1,4 @@
 0001-turn-sysfs-write-warnings-into-debug.patch
 0002-thd_cdev-ensure-_target_value-is-initialized.patch
 0003-Fix-build-warning-on-i386-architecture-builds.patch
+0004-set-default-preference.patch

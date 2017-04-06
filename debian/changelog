@@ -1,3 +1,10 @@
+thermald (1.6.0-2) unstable; urgency=medium
+
+  * set default preference to ENERGY_CONSERVE
+   - upstream fix 37a25879239466f2d096
+
+ -- Colin King <colin.king@canonical.com>  Thu, 6 Apr 2017 17:00:12 +0100
+
 thermald (1.6.0-1) unstable; urgency=medium
 
   * sync with latest upstream release 1.6

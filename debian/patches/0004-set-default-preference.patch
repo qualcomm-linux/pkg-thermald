@@ -1,0 +1,29 @@
+From 37a25879239466f2d096fd1a58b2ac7bbc3958f5 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Mon, 27 Mar 2017 17:39:30 -0700
+Subject: [PATCH] set default preference
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+In case there is missing element for preference, set ENERGY_CONSERVE
+as default.
+---
+ src/thd_parse.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/thd_parse.cpp b/src/thd_parse.cpp
+index f73d43e..f5e0870 100644
+--- a/src/thd_parse.cpp
++++ b/src/thd_parse.cpp
+@@ -462,6 +462,8 @@ int cthd_parse::parse_new_platform_info(xmlNode * a_node, xmlDoc *doc,
+ 	xmlNode *cur_node = NULL;
+ 	char *tmp_value;
+ 
++	info_ptr->default_prefernce = PREF_ENERGY_CONSERVE;
++
+ 	for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
+ 		if (cur_node->type == XML_ELEMENT_NODE) {
+ 			DEBUG_PARSER_PRINT("node type: Element, name: %s value: %s\n", cur_node->name, xmlNodeListGetString(doc, cur_node->xmlChildrenNode, 1));
+-- 
+2.11.0
+
