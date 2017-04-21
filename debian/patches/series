@@ -2,3 +2,7 @@
 0002-thd_cdev-ensure-_target_value-is-initialized.patch
 0003-Fix-build-warning-on-i386-architecture-builds.patch
 0004-set-default-preference.patch
+0005-remove-duplicate-assignment-to-critical_temp.patch
+0006-thd_parse-check-for-xmlNodeListGetString-NULL-return.patch
+0007-fix-typo-on-field-name-default_prefernce.patch
+0008-Don-t-terminate-the-thermald-engine-if-thd_engine-is.patch

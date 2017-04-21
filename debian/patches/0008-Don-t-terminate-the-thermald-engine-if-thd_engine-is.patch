@@ -1,0 +1,42 @@
+From 18989faac5138213a99f63346e49f4279caad9fb Mon Sep 17 00:00:00 2001
+From: Colin Ian King <colin.king@canonical.com>
+Date: Thu, 20 Apr 2017 18:40:47 +0100
+Subject: [PATCH] Don't terminate the thermald engine if thd_engine is null
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+It is possible for a signal to occur before the thermald engine
+is up and running and hence trying to call the terminate method
+will result in a segmentation fault. Check to see if thd_engine
+is non-null before invoking thd_engine_terminate.
+
+Fixes bug http://bugs.launchpad.net/bugs/1677427
+
+Note: I was able to reproduce the bug by inserting a
+kill(getpid(), SIGTERM) after the signal handler was installed
+and before the thermald engine is started to reliably trip the
+issue. There is just a very small window where this bug can
+actually can occur.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ src/main.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/main.cpp b/src/main.cpp
+index 14bd912..36abe7b 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -137,7 +137,8 @@ bool check_thermald_running() {
+ 
+ // SIGTERM & SIGINT handler
+ void sig_int_handler(int signum) {
+-	thd_engine->thd_engine_terminate();
++	if (thd_engine)
++		thd_engine->thd_engine_terminate();
+ 	sleep(1);
+ 	if (g_main_loop)
+ 		g_main_loop_quit(g_main_loop);
+-- 
+2.11.0
+

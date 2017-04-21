@@ -1,3 +1,15 @@
+thermald (1.6.0-3) unstable; urgency=medium
+
+  * Pull in a few upstream and Ubuntu fixes:
+    - remove duplicate assignment to critical_temp (minor code cleanup)
+    - thd_parse: check for xmlNodeListGetString NULL returns
+      fixes potential NULL ptr deference bug
+    - fix typo on field name default_prefernce
+    - Don't terminate thermald engine if thd_engine is null (LP: #1677427)
+      fixes segfault if SIGTERM occurs during startup.
+
+ -- Colin King <colin.king@canonical.com>  Fri, 21 Apr 2017 11:16:23 +0100
+
 thermald (1.6.0-2) unstable; urgency=medium
 
   * set default preference to ENERGY_CONSERVE
