@@ -1,3 +1,11 @@
+thermald (1.6.0-4) unstable; urgency=medium
+
+  * Fix dbus re-init accessing deleted pointer
+    - upstream fix 9c5d8354dd8efff340
+  * Update Standards-Version to 4.0.0
+
+ -- Colin King <colin.king@canonical.com>  Fri, 30 Jun 2017 06:27:41 +0100
+
 thermald (1.6.0-3) unstable; urgency=medium
 
   * Pull in a few upstream and Ubuntu fixes:
