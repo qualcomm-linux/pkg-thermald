@@ -1,3 +1,10 @@
+thermald (1.6.0-5) unstable; urgency=medium
+
+  * Initialize lowest_valid_index to prevent SEGV
+    - upstream commit 18d6ca75bbc504a
+
+ -- Colin King <colin.king@canonical.com>  Fri, 7 Jul 2017 19:26:58 +0100
+
 thermald (1.6.0-4) unstable; urgency=medium
 
   * Fix dbus re-init accessing deleted pointer

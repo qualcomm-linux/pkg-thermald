@@ -7,3 +7,4 @@
 0007-fix-typo-on-field-name-default_prefernce.patch
 0008-Don-t-terminate-the-thermald-engine-if-thd_engine-is.patch
 0009-Fix-dbus-re-init-accessing-deleted-pointer.patch
+0010-Initialize-lowest_valid_index-to-prevent-SEGV.patch

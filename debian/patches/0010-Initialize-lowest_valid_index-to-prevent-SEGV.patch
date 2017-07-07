@@ -1,0 +1,28 @@
+From 18d6ca75bbc504aaf9fe862dc1c10c3c65fbe7bd Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Fri, 30 Jun 2017 10:23:48 -0700
+Subject: [PATCH] Initialize lowest_valid_index to prevent SEGV
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Chris Murphy reported ThermalMonitor crash by signal 11.
+Fix this by initializing lowest_valid_index to 0.
+---
+ tools/thermal_monitor/thermaldinterface.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tools/thermal_monitor/thermaldinterface.cpp b/tools/thermal_monitor/thermaldinterface.cpp
+index eca8d74..e73b7a5 100644
+--- a/tools/thermal_monitor/thermaldinterface.cpp
++++ b/tools/thermal_monitor/thermaldinterface.cpp
+@@ -453,6 +453,7 @@ int ThermaldInterface::getZoneInformation(uint index, zoneInformationType &info)
+         info.name = result.arguments().at(0).toString();
+         info.sensor_count = result.arguments().at(1).toInt();
+         info.trip_count = result.arguments().at(2).toInt();
++        info.lowest_valid_index = 0;
+         return 0;
+     } else {
+         qCritical() << "error from" << iface->interface() <<  result.errorMessage();
+-- 
+2.11.0
+
