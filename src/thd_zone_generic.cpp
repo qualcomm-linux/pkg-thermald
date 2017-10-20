@@ -27,8 +27,7 @@
 
 cthd_zone_generic::cthd_zone_generic(int index, int _config_index,
 		std::string type) :
-		cthd_zone(index, ""), trip_point_cnt(0), config_index(_config_index), zone(
-		NULL) {
+		cthd_zone(index, ""), config_index(_config_index) {
 	type_str = type;
 
 }
@@ -72,6 +71,7 @@ int cthd_zone_generic::read_trip_points() {
 				trip_pt.thd_trip_point_add_cdev(*cdev,
 						trip_pt_config.cdev_trips[j].influence,
 						trip_pt_config.cdev_trips[j].sampling_period,
+						trip_pt_config.cdev_trips[j].target_state_valid,
 						trip_pt_config.cdev_trips[j].target_state);
 				zone_cdev_set_binded();
 			}

@@ -2,8 +2,8 @@ Source: thermald
 Section: admin
 Priority: optional
 Maintainer: Colin King <colin.king@canonical.com>
-Standards-Version: 4.0.0
-Build-Depends: debhelper (>= 9), dh-autoreconf, quilt, autoconf, libglib2.0-dev, libdbus-1-dev, libdbus-glib-1-dev, libxml2-dev, dh-systemd (>= 1.5)
+Standards-Version: 4.1.1
+Build-Depends: debhelper (>= 9.20160709), dh-autoreconf, quilt, autoconf, libglib2.0-dev, libdbus-1-dev, libdbus-glib-1-dev, libxml2-dev
 Homepage: https://github.com/01org/thermal_daemon
 
 Package: thermald

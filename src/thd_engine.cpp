@@ -235,6 +235,10 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 		return THD_FATAL_ERROR;
 	}
 
+	if (parser.platform_matched()) {
+		parser.set_default_preference();
+	}
+
 	// Check if polling is disabled and sensors don't support
 	// async mode, in that enable force polling
 	if (!poll_interval_sec) {
@@ -299,6 +303,7 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 		}
 	}
 #endif
+	thd_pref.refresh();
 	preference = thd_pref.get_preference();
 	thd_log_info("Current user preference is %d\n", preference);
 
@@ -442,7 +447,7 @@ void cthd_engine::poll_enable_disable(bool status, message_capsul_t *msg) {
 int cthd_engine::proc_message(message_capsul_t *msg) {
 	int ret = 0;
 
-	thd_log_debug("Receieved message %d\n", msg->msg_id);
+	thd_log_debug("Received message %d\n", msg->msg_id);
 	switch (msg->msg_id) {
 	case WAKEUP:
 		break;
@@ -599,8 +604,10 @@ static supported_ids_t id_table[] = {
 		{ 6, 0x4e }, // skylake
 		{ 6, 0x5e }, // skylake
 		{ 6, 0x5c }, // Broxton
+		{ 6, 0x7a }, // Gemini Lake
 		{ 6, 0x8e }, // kabylake
 		{ 6, 0x9e }, // kabylake
+		{ 6, 0x66 }, // Cannonlake
 		{ 0, 0 } // Last Invalid entry
 };
 
@@ -780,6 +787,8 @@ cthd_cdev* cthd_engine::search_cdev(std::string name) {
 		if (!cdev)
 			continue;
 		if (cdev->get_cdev_type() == name)
+			return cdev;
+		if (cdev->get_cdev_alias() == name)
 			return cdev;
 	}
 

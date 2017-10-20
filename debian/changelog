@@ -1,3 +1,11 @@
+thermald (1.7.0-1) unstable; urgency=medium
+
+  * sync with latest upstream release 1.7
+  * remove patches from previous release as
+    they are all merged into 1.7
+
+ -- Colin King <colin.king@canonical.com>  Fri, 20 Oct 2017 22:44:33 +0100
+
 thermald (1.6.0-5) unstable; urgency=medium
 
   * Initialize lowest_valid_index to prevent SEGV
