@@ -36,7 +36,10 @@
 #include "thd_cdev_rapl_dram.h"
 #include "thd_sensor_virtual.h"
 #include "thd_cdev_backlight.h"
+
+#ifdef GLIB_SUPPORT
 #include "thd_cdev_modem.h"
+#endif
 
 // Default CPU cooling devices, which are not part of thermal sysfs
 // Since non trivial initialization is not supported, we init all fields even if they are not needed
@@ -53,13 +56,15 @@
  .pid = {0.0, 0.0, 0.0}},
  };
  */
-static cooling_dev_t cpu_def_cooling_devices[] = { { true, CDEV_DEF_BIT_UNIT_VAL
-		| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
-		0, ABSOULUTE_VALUE, 0, 0, 5, false, false, "intel_powerclamp", "", 4,
-		false, { 0.0, 0.0, 0.0 } }, { true, CDEV_DEF_BIT_UNIT_VAL
-		| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
-		0, ABSOULUTE_VALUE, 0, 100, 5, false, false, "LCD", "", 4, false, { 0.0,
-				0.0, 0.0 } } };
+static cooling_dev_t cpu_def_cooling_devices[] = {
+		{ true, CDEV_DEF_BIT_UNIT_VAL
+				| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
+				0, ABSOULUTE_VALUE, 0, 0, 5, false, false, "intel_powerclamp", "", 4,
+				false, { 0.0, 0.0, 0.0 },"" },
+		{ true, CDEV_DEF_BIT_UNIT_VAL
+				| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
+				0, ABSOULUTE_VALUE, 0, 100, 5, false, false, "LCD", "", 4, false, { 0.0,
+				0.0, 0.0 },"" } };
 
 cthd_engine_default::~cthd_engine_default() {
 }
@@ -212,6 +217,9 @@ int cthd_engine_default::read_thermal_sensors() {
 
 bool cthd_engine_default::add_int340x_processor_dev(void)
 {
+	if (thd_ignore_default_control)
+		return false;
+
 	/* Specialized processor thermal device names */
 	cthd_zone *processor_thermal = search_zone("B0D4");
 	if (!processor_thermal)
@@ -279,7 +287,7 @@ int cthd_engine_default::read_thermal_zones() {
 
 	bool valid_int340x = add_int340x_processor_dev();
 
-	if (!valid_int340x && !search_zone("cpu")) {
+	if (!thd_ignore_default_control && !valid_int340x && !search_zone("cpu")) {
 		bool cpu_zone_created = false;
 		thd_log_info("zone cpu will be created \n");
 		// Default CPU temperature zone
@@ -391,6 +399,7 @@ int cthd_engine_default::read_thermal_zones() {
 								trip_pt.thd_trip_point_add_cdev(*cdev,
 										trip_pt_config.cdev_trips[j].influence,
 										trip_pt_config.cdev_trips[j].sampling_period,
+										trip_pt_config.cdev_trips[j].target_state_valid,
 										trip_pt_config.cdev_trips[j].target_state);
 								zone->zone_cdev_set_binded();
 								activate = true;
@@ -416,6 +425,7 @@ int cthd_engine_default::read_thermal_zones() {
 										trip_pt_config.trip_pt_type, 0, cdev,
 										trip_pt_config.cdev_trips[j].influence,
 										trip_pt_config.cdev_trips[j].sampling_period,
+										trip_pt_config.cdev_trips[j].target_state_valid,
 										trip_pt_config.cdev_trips[j].target_state) == THD_SUCCESS) {
 									thd_log_debug(
 											"bind %s to trip to sensor %s\n",
@@ -478,9 +488,11 @@ int cthd_engine_default::read_thermal_zones() {
 #ifdef AUTO_DETECT_RELATIONSHIP
 	def_binding.do_default_binding(cdevs);
 #endif
+	thd_log_info("\n\n ZONE DUMP BEGIN\n");
 	for (unsigned int i = 0; i < zones.size(); ++i) {
 		zones[i]->zone_dump();
 	}
+	thd_log_info("\n\n ZONE DUMP END\n");
 
 	return THD_SUCCESS;
 }
@@ -502,7 +514,8 @@ int cthd_engine_default::add_replace_cdev(cooling_dev_t *config) {
 	}
 	if (!cdev_present) {
 		// create new
-		if (config->type_string.compare("intel_modem") == 0)
+		if (config->type_string.compare("intel_modem") == 0) {
+#ifdef GLIB_SUPPORT
 			/*
 			 * Add Modem as cdev
 			 * intel_modem is a modem identifier across all intel platforms.
@@ -510,7 +523,8 @@ int cthd_engine_default::add_replace_cdev(cooling_dev_t *config) {
 			 * are to be taken care in the cdev implementation.
 			 */
 			cdev = new cthd_cdev_modem(current_cdev_index, config->path_str);
-		else
+#endif
+		} else
 			cdev = new cthd_gen_sysfs_cdev(current_cdev_index, config->path_str);
 		if (!cdev)
 			return THD_ERROR;
@@ -561,6 +575,9 @@ int cthd_engine_default::add_replace_cdev(cooling_dev_t *config) {
 		cdev->set_pid_param(config->pid.Kp, config->pid.Ki, config->pid.Kd);
 	}
 
+	if (config->mask & CDEV_DEF_BIT_WRITE_PREFIX)
+		cdev->thd_cdev_set_write_prefix(config->write_prefix);
+
 	return THD_SUCCESS;
 
 }
@@ -576,6 +593,7 @@ int cthd_engine_default::read_cooling_devices() {
 	cthd_sysfs_cdev_rapl *rapl_dev = new cthd_sysfs_cdev_rapl(
 			current_cdev_index, 0);
 	rapl_dev->set_cdev_type("rapl_controller");
+	rapl_dev->set_cdev_alias("B0D4");
 	if (rapl_dev->update() == THD_SUCCESS) {
 		cdevs.push_back(rapl_dev);
 		++current_cdev_index;

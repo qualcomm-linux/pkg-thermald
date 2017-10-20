@@ -42,6 +42,7 @@
 #define CDEV_DEF_BIT_UNIT_VAL	0x0080
 #define CDEV_DEF_BIT_DEBOUNCE_VAL	0x0100
 #define CDEV_DEF_BIT_PID_PARAMS	0x0200
+#define CDEV_DEF_BIT_WRITE_PREFIX	0x0400
 
 #define SENSOR_DEF_BIT_PATH		0x0001
 #define SENSOR_DEF_BIT_ASYNC_CAPABLE		0x0002
@@ -71,6 +72,7 @@ typedef struct {
 	std::string type;
 	int influence;
 	int sampling_period;
+	int target_state_valid;
 	int target_state;
 } trip_cdev_t;
 
@@ -108,14 +110,14 @@ typedef struct {
 	int debounce_interval;
 	bool pid_enable;
 	pid_control_t pid;
-
+	std::string write_prefix;
 } cooling_dev_t;
 
 typedef struct {
 	std::string name;
 	std::string uuid;
 	std::string product_name;
-	int default_prefernce;
+	int default_preference;
 	std::vector<thermal_sensor_t> sensors;
 	std::vector<thermal_zone_t> zones;
 	std::vector<cooling_dev_t> cooling_devs;
