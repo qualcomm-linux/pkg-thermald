@@ -1,3 +1,13 @@
+thermald (1.7.0-2) unstable; urgency=medium
+
+  [ Bryan Quigley ]
+  * Remove upstart support
+
+  [ Colin King ]
+  * Update Standards-Version to  4.1.2
+
+ -- Colin King <colin.king@canonical.com>  Mon, 11 Dec 2017 18:25:11 +0000
+
 thermald (1.7.0-1) unstable; urgency=medium
 
   * sync with latest upstream release 1.7
@@ -300,7 +310,7 @@ thermald (1.1~rc2-11) unstable; urgency=medium
   * Fix Kclockwork issue: gettext bounds
   * Fix klockworks issue with strcasecmp NULL param
   * Fix klockworks double free complaints
-  * Don't skip the current cdev 
+  * Don't skip the current cdev
   * Fix klocworks issue with memleak
 
  -- Colin King <colin.king@canonical.com>  Tue, 18 Mar 2014 10:55:11 +0000
