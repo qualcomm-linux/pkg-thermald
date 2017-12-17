@@ -1,3 +1,13 @@
+thermald (1.7.0-3) unstable; urgency=medium
+
+  * remove /etc/init/thermald.conf (Closes: #884589)
+  * clean up warning: thermald source: useless-autoreconf-build-depends
+    dh-autoreconf
+  * Update compat from 9 to 10
+  * Use debhelper >= 10
+
+ -- Colin King <colin.king@canonical.com>  Sun, 17 Dec 2017 14:04:24 +0000
+
 thermald (1.7.0-2) unstable; urgency=medium
 
   [ Bryan Quigley ]
