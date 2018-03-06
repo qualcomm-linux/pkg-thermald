@@ -1,3 +1,9 @@
+thermald (1.7.0-4) unstable; urgency=medium
+
+  * Fix global-files-wildcard-not-first-paragraph-in-dep5-copyright
+
+ -- Colin King <colin.king@canonical.com>  Tue, 6 Mar 2018 09:46:19 +0000
+
 thermald (1.7.0-3) unstable; urgency=medium
 
   * remove /etc/init/thermald.conf (Closes: #884589)
