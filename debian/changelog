@@ -1,3 +1,11 @@
+thermald (1.7.0-5) unstable; urgency=medium
+
+  * Don't continually re-read broken temperature sysfs file (LP: #1764320)
+    log once that is unreadble, thereafter don't re-read as this
+    will spam the log with read failure messages
+
+ -- Colin King <colin.king@canonical.com>  Tue, 17 Apr 2018 16:22:21 +0100
+
 thermald (1.7.0-4) unstable; urgency=medium
 
   * Fix global-files-wildcard-not-first-paragraph-in-dep5-copyright
