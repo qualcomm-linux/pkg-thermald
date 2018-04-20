@@ -1,2 +1,3 @@
 0001-Remove-upstart-support.patch
 0002-Don-t-keep-on-reading-a-sensor-if-the-temperature-is.patch
+0003-thermald-fix-uninitialised-member.patch

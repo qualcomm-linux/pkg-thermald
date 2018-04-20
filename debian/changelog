@@ -1,3 +1,12 @@
+thermald (1.7.0-6) unstable; urgency=medium
+
+  [ Ben Caradoc-Davies ]
+  * Fix non-initialized temp_unreadable (Closes: #896132)
+    - fixes regression caused by previous fix, initialise
+      temp_unreadable to restore temperature control.
+
+ -- Colin King <colin.king@canonical.com>  Fri, 20 Apr 2018 02:08:23 +0100
+
 thermald (1.7.0-5) unstable; urgency=medium
 
   * Don't continually re-read broken temperature sysfs file (LP: #1764320)
