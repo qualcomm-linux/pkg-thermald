@@ -1,3 +1,14 @@
+thermald (1.7.0-7) unstable; urgency=medium
+
+  [ Srinivas Pandruvada ]
+  * Remove processing when trip was not activates
+    - When trip was not activated, don't poll cooling
+      device status. This will save some CPU cycles.
+  [ Colin King ]
+  * Remove extraneous line at end of debian/control
+ 
+ -- Colin King <colin.king@canonical.com>  Tue, 15 May 2018 10:15:15 +0100
+
 thermald (1.7.0-6) unstable; urgency=medium
 
   [ Ben Caradoc-Davies ]

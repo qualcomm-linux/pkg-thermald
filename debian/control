@@ -14,4 +14,3 @@ Description: Thermal monitoring and controlling daemon
  controlling platform temperatures. Once the system
  temperature reaches a certain threshold, the Linux daemon
  activates various cooling methods to try to cool the system.
-
