@@ -1,3 +1,16 @@
+thermald (1.8.0-1) unstable; urgency=medium
+
+  * sync with latest upstream release 1.8
+  * remove some patches from previous release as they are all merged
+    into 1.8 and refresh the others to apply cleanly.
+  * Add upstream fixes:
+    - 99e51f3bed99 fix cdev state error while trip point is off
+    - bb7631163c8f Use correct format specifier for size_t
+  * Update compat to 11
+  * Clean up package-uses-old-debhelper-compat-version warning
+
+ -- Colin King <colin.king@canonical.com>  Fri, 19 Oct 2018 11:04:47 +0100
+
 thermald (1.7.0-8) unstable; urgency=medium
 
   [ Eric S. Raymond ]

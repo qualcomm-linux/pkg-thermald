@@ -32,10 +32,16 @@
 #include "thd_cdev_cpufreq.h"
 #include "thd_cdev_rapl.h"
 #include "thd_cdev_intel_pstate_driver.h"
-#include "thd_zone_surface.h"
 #include "thd_cdev_rapl_dram.h"
 #include "thd_sensor_virtual.h"
 #include "thd_cdev_backlight.h"
+#include "thd_int3400.h"
+#include "thd_sensor_kbl_amdgpu_thermal.h"
+#include "thd_sensor_kbl_amdgpu_power.h"
+#include "thd_cdev_kbl_amdgpu.h"
+#include "thd_zone_kbl_amdgpu.h"
+#include "thd_sensor_kbl_g_mcp.h"
+#include "thd_zone_kbl_g_mcp.h"
 
 #ifdef GLIB_SUPPORT
 #include "thd_cdev_modem.h"
@@ -163,6 +169,31 @@ int cthd_engine_default::read_thermal_sensors() {
 		// No coretemp sysfs exist, try hwmon
 		thd_log_warn("Thermal DTS: No coretemp sysfs found\n");
 	}
+
+	cthd_sensor_kbl_amdgpu_thermal *amdgpu_thermal = new cthd_sensor_kbl_amdgpu_thermal(index);
+	if (amdgpu_thermal->sensor_update() == THD_SUCCESS) {
+		sensors.push_back(amdgpu_thermal);
+		++index;
+	} else {
+		delete amdgpu_thermal;
+	}
+
+	cthd_sensor_kbl_amdgpu_power *amdgpu_power = new cthd_sensor_kbl_amdgpu_power(index);
+	if (amdgpu_power->sensor_update() == THD_SUCCESS) {
+		sensors.push_back(amdgpu_power);
+		++index;
+	} else {
+		delete amdgpu_power;
+	}
+
+	cthd_sensor_kbl_g_mcp *mcp_power = new cthd_sensor_kbl_g_mcp(index);
+	if (mcp_power->sensor_update() == THD_SUCCESS) {
+		sensors.push_back(mcp_power);
+		++index;
+	} else {
+		delete mcp_power;
+	}
+
 	current_sensor_index = index;
 	// Add from XML sensor config
 	if (!parser_init() && parser.platform_matched()) {
@@ -221,7 +252,13 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 		return false;
 
 	/* Specialized processor thermal device names */
-	cthd_zone *processor_thermal = search_zone("B0D4");
+	cthd_zone *processor_thermal = NULL;
+	cthd_INT3400 int3400;
+
+	if (int3400.match_supported_uuid() == THD_SUCCESS) {
+		processor_thermal = search_zone("B0D4");
+	}
+
 	if (!processor_thermal)
 		processor_thermal = search_zone("B0DB");
 	if (!processor_thermal)
@@ -390,6 +427,11 @@ int cthd_engine_default::read_thermal_zones() {
 								trip_pt_config.temperature, trip_pt_config.hyst,
 								zone->get_zone_index(), sensor->get_index(),
 								trip_pt_config.control_type);
+
+						if (trip_pt_config.dependency.dependency) {
+							trip_pt.set_dependency(trip_pt_config.dependency.cdev, trip_pt_config.dependency.state);
+						}
+
 						// bind cdev
 						for (unsigned int j = 0;
 								j < trip_pt_config.cdev_trips.size(); ++j) {
@@ -461,25 +503,6 @@ int cthd_engine_default::read_thermal_zones() {
 		}
 	}
 	current_zone_index = index;
-
-#ifdef ACTIVATE_SURFACE
-//	Enable when skin sensors are standardized
-	cthd_zone *surface;
-	surface = search_zone("Surface");
-
-	if (!surface || (surface && !surface->zone_active_status())) {
-		cthd_zone_surface *zone = new cthd_zone_surface(index);
-		if (zone->zone_update() == THD_SUCCESS) {
-			zones.push_back(zone);
-			++index;
-			zone->set_zone_active();
-		} else
-		delete zone;
-	} else {
-		thd_log_info("TSKN sensor was activated by config \n");
-	}
-	current_zone_index = index;
-#endif
 
 	if (!zones.size()) {
 		thd_log_info("No Thermal Zones found \n");

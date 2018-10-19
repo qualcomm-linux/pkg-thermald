@@ -15,4 +15,4 @@ override_dh_installinit:
 	dh_installinit --error-handler=true
 
 %:
-	dh $@ --with autoreconf,systemd
+	dh $@ --with autoreconf

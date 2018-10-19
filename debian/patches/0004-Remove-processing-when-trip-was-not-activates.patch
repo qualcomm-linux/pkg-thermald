@@ -11,11 +11,11 @@ will save some CPU cycles.
  src/thd_trip_point.cpp | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/src/thd_trip_point.cpp b/src/thd_trip_point.cpp
-index dd1b881..3d71b33 100644
---- a/src/thd_trip_point.cpp
-+++ b/src/thd_trip_point.cpp
-@@ -109,8 +109,7 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
+Index: thermald-1.8.0/src/thd_trip_point.cpp
+===================================================================
+--- thermald-1.8.0.orig/src/thd_trip_point.cpp
++++ thermald-1.8.0/src/thd_trip_point.cpp
+@@ -219,8 +219,7 @@ bool cthd_trip_point::thd_trip_point_che
  			thd_log_debug("Trip point applicable >  %d:%d \n", index, temp);
  			on = 1;
  			trip_on = true;
@@ -25,6 +25,3 @@ index dd1b881..3d71b33 100644
  			thd_log_debug("Trip point applicable <  %d:%d \n", index, temp);
  			off = 1;
  			trip_on = false;
--- 
-2.17.0
-

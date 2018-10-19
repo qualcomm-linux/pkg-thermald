@@ -170,6 +170,7 @@ int main(int argc, char *argv[]) {
 	bool test_mode = false;
 	bool is_privileged_user = false;
 	char *conf_file = NULL;
+	bool ignore_cpuid_check = false;
 
 	const char* const short_options = "hvnp:detc:";
 	static struct option long_options[] = {
@@ -180,6 +181,8 @@ int main(int argc, char *argv[]) {
 			{ "exclusive_control", no_argument, 0, 'e' },
 			{ "test-mode", no_argument, 0, 't' },
 			{ "config-file", required_argument, 0, 'c' },
+			{ "ignore-cpuid-check", no_argument, 0, 'i'},
+			{ "ignore-default-control", no_argument, 0, 'd'},
 			{ NULL, 0, NULL, 0 } };
 
 	if (argc > 1) {
@@ -208,6 +211,12 @@ int main(int argc, char *argv[]) {
 			case 'c':
 				conf_file = optarg;
 				break;
+			case 'i':
+				ignore_cpuid_check = true;
+				break;
+			case 'd':
+				thd_ignore_default_control = true;
+				break;
 			case -1:
 			case 0:
 				break;
@@ -232,7 +241,8 @@ int main(int argc, char *argv[]) {
 	}
 	mkdir(TDCONFDIR, 0755); // Don't care return value as directory
 	if (!no_daemon) {
-		daemonize((char *) "/tmp/", (char *) "/tmp/thermald.pid");
+		daemonize((char *) "/data/misc/thermal-daemon",
+				(char *) "/data/misc/thermal-daemon/thermald.pid");
 	} else
 		signal(SIGINT, signal_handler);
 
@@ -240,7 +250,7 @@ int main(int argc, char *argv[]) {
 			"Linux Thermal Daemon is starting mode %d : poll_interval %d :ex_control %d\n",
 			no_daemon, thd_poll_interval, exclusive_control);
 
-	if (thd_engine_create_default_engine(false, exclusive_control,
+	if (thd_engine_create_default_engine(ignore_cpuid_check, exclusive_control,
 			conf_file) != THD_SUCCESS) {
 		exit(EXIT_FAILURE);
 	}

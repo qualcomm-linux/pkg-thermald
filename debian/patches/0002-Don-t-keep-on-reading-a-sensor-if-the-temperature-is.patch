@@ -21,11 +21,22 @@ Signed-off-by: Colin Ian King <colin.king@canonical.com>
  src/thd_sensor.h   |  1 +
  2 files changed, 18 insertions(+), 7 deletions(-)
 
-diff --git a/src/thd_sensor.cpp b/src/thd_sensor.cpp
-index c94f384..533ed66 100644
---- a/src/thd_sensor.cpp
-+++ b/src/thd_sensor.cpp
-@@ -63,17 +63,27 @@ int cthd_sensor::sensor_update() {
+===================================================================
+--- thermald-1.8.0.orig/src/thd_sensor.h
++++ thermald-1.8.0/src/thd_sensor.h
+@@ -41,6 +41,7 @@ protected:
+ 	std::string type_str;
+ 	bool async_capable;
+ 	bool virtual_sensor;
++	bool temp_unreadable;
+ 
+ private:
+ 	std::vector<int> thresholds;
+Index: thermald-1.8.0/src/thd_sensor.cpp
+===================================================================
+--- thermald-1.8.0.orig/src/thd_sensor.cpp
++++ thermald-1.8.0/src/thd_sensor.cpp
+@@ -64,17 +64,27 @@ int cthd_sensor::sensor_update() {
  unsigned int cthd_sensor::read_temperature() {
  	csys_fs sysfs;
  	std::string buffer;
@@ -57,21 +68,6 @@ index c94f384..533ed66 100644
 +		return 0;
 +	}
 +	thd_log_debug("Sensor %s: temp %u \n", type_str.c_str(), temp);
- 	return (unsigned int)temp;
+ 	return (unsigned int)temp / scale;
  }
  
-diff --git a/src/thd_sensor.h b/src/thd_sensor.h
-index 58268be..dfc28eb 100644
---- a/src/thd_sensor.h
-+++ b/src/thd_sensor.h
-@@ -41,6 +41,7 @@ protected:
- 	std::string type_str;
- 	bool async_capable;
- 	bool virtual_sensor;
-+	bool temp_unreadable;
- 
- private:
- 	std::vector<int> thresholds;
--- 
-2.17.0
-
