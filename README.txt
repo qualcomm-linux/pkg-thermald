@@ -64,12 +64,8 @@ Build
 	make
 	sudo make install
 (It will give error for systemd configuration, but ignore)
-cp data/thermald.conf /etc/init/
-3.
-If using upstart
-	Use "sudo start thermald" to start
-	Use "sudo stop thermald" to stop
 
+3.
 If using systemd, use
 - start service
 	sudo systemctl start thermald.service
@@ -81,6 +77,27 @@ If using systemd, use
 -------------------------------------------
 
 Releases
+
+Release 1.8
+- Support of KBL-G with discrete GPU
+- Fast removal of any cooling action which was applied once
+temperature is normal
+- Android support
+- Add Hot trip point, which when reached just calls "suspend"
+- Adding new tag "DependsOn" which enable/disable trip based on some other trip
+- Polling interval can be configured via thermal xml config
+- Per trip PID control
+- Simplify RAPL cooling device
+
+Release 1.7.2
+- Workwround for platform with invalid thermal table
+- Error printing for RAPL constraint sysfs read on failure
+- thermal-conf.xml.auto  can be read from /etc/thermald, which allows user to modify
+generated thermal-conf.xml from /var/run/thermald and copy to /etc/thermald
+
+Release 1.7.1
+- Removed dptfxtract binary as there is an issue
+in packaging this with GPL source for distributions
 
 Release 1.7
 - Add GeminiLake

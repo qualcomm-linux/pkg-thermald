@@ -1,7 +1,7 @@
 /*
- * thd_zone_surface.h: zone interface for external surface
+ * thd_sensor_kbl_amdgpu_power.h: Power Sensor for KBL-G amdgpu
  *
- * Copyright (C) 2013 Intel Corporation. All rights reserved.
+ * Copyright (C) 2018 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -22,26 +22,16 @@
  *
  */
 
-#ifndef THD_ZONE_SURFACE_H_
-#define THD_ZONE_SURFACE_H_
+#ifndef THD_SENSOR_KBL_G_MCP_H
+#define THD_SENSOR_KBL_G_MCP_H
 
-#include "thd_zone_therm_sys_fs.h"
-#include "thd_engine.h"
+#include "thd_sensor.h"
 
-class cthd_zone_surface: public cthd_zone {
+class cthd_sensor_kbl_g_mcp: public cthd_sensor {
 private:
-	cthd_sensor *sensor;
-
 public:
-	static const int passive_trip_temp = 50000;
-	static const int passive_trip_hyst = 1000;
-	static const int surface_sampling_period = 12;
-
-	cthd_zone_surface(int count);
-
-	int read_trip_points();
-	int read_cdev_trip_points();
-	int zone_bind_sensors();
+	cthd_sensor_kbl_g_mcp(int index);
+	unsigned int read_temperature();
 };
 
-#endif /* THD_ZONE_SURFACE_H_ */
+#endif

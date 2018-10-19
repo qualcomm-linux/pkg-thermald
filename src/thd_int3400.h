@@ -1,7 +1,7 @@
 /*
- * thd_pid.h: pid interface
+ * thd_int3400.h: Load and check INT3400 uuids for match
  *
- * Copyright (C) 2013 Intel Corporation. All rights reserved.
+ * Copyright (C) 2018 Intel Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -22,38 +22,17 @@
  *
  */
 
-#include "thermald.h"
-#include <time.h>
+#ifndef SRC_THD_INT3400_UUID_H_
+#define SRC_THD_INT3400_UUID_H_
 
-typedef struct
-{
-	int valid;
-	double kp;
-	double ki;
-	double kd;
-}pid_param_t;
+#include "thd_common.h"
+#include <string>
+#include <vector>
 
-class cthd_pid {
-
-private:
-	double err_sum, last_err;
-	time_t last_time;
-	unsigned int target_temp;
-
+class cthd_INT3400 {
 public:
-	cthd_pid();
-	double kp, ki, kd;
-	void set_pid_param(double _kp, double _ki, double _kd)
-	{
-		kp = _kp;
-		ki = _ki;
-		kd = _kd;
-	}
-	int pid_output(unsigned int curr_temp);
-	void set_target_temp(unsigned int temp) {
-		target_temp = temp;
-	}
-	void reset() {
-		err_sum = last_err = last_time = 0;
-	}
+	int match_supported_uuid(void);
+	void set_default_uuid(void);
 };
+
+#endif /* SRC_THD_INT3400_UUID_H_ */
