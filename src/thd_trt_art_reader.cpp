@@ -168,7 +168,8 @@ int cthd_acpi_rel::generate_conf(std::string file_name) {
 
 	if (int3400.match_supported_uuid() != THD_SUCCESS) {
 		thd_log_info("Passive 1 UUID is not present, hence ignore _TRT, as it may have junk!!");
-		return -1;
+		ret = -1;
+		goto cleanup;
 	}
 
 	conf_file.open(file_name.c_str());
@@ -477,6 +478,7 @@ void cthd_acpi_rel::create_platform_conf() {
 	conf_file << prefix.c_str() << "</ProductName>" << "\n";
 }
 
+#if LOG_DEBUG_INFO == 1
 void cthd_acpi_rel::dump_trt() {
 
 	union trt_object *trt = (union trt_object *) trt_data;
@@ -506,6 +508,13 @@ void cthd_acpi_rel::dump_art() {
 		PRINT_DEBUG("ART %d: WT %llu:\n", i, art[i].acpi_art_entry.weight);
 	}
 }
+#else
+void cthd_acpi_rel::dump_trt() {
+}
+
+void cthd_acpi_rel::dump_art() {
+}
+#endif
 
 void cthd_acpi_rel::create_platform_pref(int perf) {
 	if (perf)

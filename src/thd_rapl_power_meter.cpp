@@ -43,6 +43,7 @@ cthd_rapl_power_meter::cthd_rapl_power_meter(unsigned int mask) :
 		rapl_present(true), rapl_sysfs("/sys/class/powercap/intel-rapl/"), domain_list(
 				0), last_time(0), poll_thread(0), measure_mask(mask), enable_measurement(
 				false) {
+	thd_attr = pthread_attr_t();
 
 	if (rapl_sysfs.exists()) {
 		thd_log_debug("RAPL sysfs present \n");
@@ -78,7 +79,7 @@ void cthd_rapl_power_meter::rapl_read_domains(const char *dir_name) {
 				domain.power = 0;
 				domain.max_power = 0;
 				domain.min_power = 0;
-				domain.type = PACKAGE;
+				domain.type = INVALID;
 
 				if (!strcmp(dir_entry->d_name, ".")
 						|| !strcmp(dir_entry->d_name, ".."))

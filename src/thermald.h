@@ -44,18 +44,26 @@
 #undef LOG_TAG
 #define LOG_TAG "THERMALD"
 #include <utils/Log.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/properties.h>
 
 #define thd_log_fatal	ALOGE
 #define thd_log_error	ALOGE
 #define thd_log_warn	ALOGW
+#if LOG_DEBUG_INFO == 1
 #define thd_log_info	ALOGI
 #define thd_log_debug 	ALOGD
+#else
+#define thd_log_info(...)
+#define thd_log_debug(...)
+#endif
 
 #else
 
 #include "config.h"
+
+// Keeping the logging flag enabled for non-android cases
+#define LOG_DEBUG_INFO	1
 
 #define LOCKF_SUPPORT
 #ifdef GLIB_SUPPORT
@@ -99,5 +107,6 @@ class cthd_engine_therm_sysfs;
 extern cthd_engine *thd_engine;
 extern int thd_poll_interval;
 extern bool thd_ignore_default_control;
-
+extern bool workaround_enabled;
+extern bool disable_active_power;
 #endif
