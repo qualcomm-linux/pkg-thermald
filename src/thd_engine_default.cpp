@@ -42,6 +42,8 @@
 #include "thd_zone_kbl_amdgpu.h"
 #include "thd_sensor_kbl_g_mcp.h"
 #include "thd_zone_kbl_g_mcp.h"
+#include "thd_cdev_kbl_amdgpu.h"
+#include "thd_zone_kbl_g_mcp.h"
 
 #ifdef GLIB_SUPPORT
 #include "thd_cdev_modem.h"
@@ -252,8 +254,9 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 		return false;
 
 	/* Specialized processor thermal device names */
-	cthd_zone *processor_thermal = NULL;
+	cthd_zone *processor_thermal = NULL, *acpi_thermal = NULL;
 	cthd_INT3400 int3400;
+	unsigned int passive, new_passive = 0, critical = 0;
 
 	if (int3400.match_supported_uuid() == THD_SUCCESS) {
 		processor_thermal = search_zone("B0D4");
@@ -269,7 +272,25 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 		for (unsigned int i = 0; i < processor_thermal->get_trip_count(); ++i) {
 			cthd_trip_point *trip = processor_thermal->get_trip_at_index(i);
 			if (trip && trip->get_trip_type() == PASSIVE
-					&& trip->get_trip_temp()) {
+					&& (passive = trip->get_trip_temp())) {
+
+				/* Need to honor ACPI _CRT, otherwise the system could be shut down by Linux kernel */
+				acpi_thermal = search_zone("acpitz");
+				if (acpi_thermal) {
+					for (unsigned int i = 0; i < acpi_thermal->get_trip_count(); ++i) {
+						cthd_trip_point *crit = acpi_thermal->get_trip_at_index(i);
+						if (crit && crit->get_trip_type() == CRITICAL) {
+							critical = crit->get_trip_temp();
+							break;
+						}
+					}
+				}
+
+				if (critical && passive + 5 * 1000 >= critical) {
+					new_passive = critical - 15 * 1000;
+					if (new_passive < critical)
+						trip->thd_trip_update_set_point(new_passive);
+				}
 
 				thd_log_info("Processor thermal device is present \n");
 				thd_log_info("It will act as CPU thermal zone !! \n");
@@ -309,6 +330,27 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 	}
 
 	return false;
+}
+
+void cthd_engine_default::disable_cpu_zone(thermal_zone_t *zone_config) {
+	cthd_zone *zone = search_zone(zone_config->type);
+	if (!zone)
+		return;
+
+	if (!zone->zone_active_status())
+		return;
+
+	for (unsigned int k = 0; k < zone_config->trip_pts.size(); ++k) {
+		trip_point_t &trip_pt_config = zone_config->trip_pts[k];
+		cthd_sensor *sensor = search_sensor(trip_pt_config.sensor_type);
+		if (sensor && sensor->get_sensor_type() == "B0D4") {
+			thd_log_info(
+					"B0D4 is defined in thermal-config so deactivating default cpu\n");
+			cthd_zone *cpu_zone = search_zone("cpu");
+			if (cpu_zone)
+				cpu_zone->set_zone_inactive();
+		}
+	}
 }
 
 int cthd_engine_default::read_thermal_zones() {
@@ -380,6 +422,7 @@ int cthd_engine_default::read_thermal_zones() {
 					"Thermal DTS or hwmon: No Zones present Need to configure manually\n");
 		}
 	}
+
 	current_zone_index = index;
 
 	// Add from XML thermal zone
@@ -442,7 +485,8 @@ int cthd_engine_default::read_thermal_zones() {
 										trip_pt_config.cdev_trips[j].influence,
 										trip_pt_config.cdev_trips[j].sampling_period,
 										trip_pt_config.cdev_trips[j].target_state_valid,
-										trip_pt_config.cdev_trips[j].target_state);
+										trip_pt_config.cdev_trips[j].target_state,
+										&trip_pt_config.cdev_trips[j].pid_param);
 								zone->zone_cdev_set_binded();
 								activate = true;
 							}
@@ -500,6 +544,7 @@ int cthd_engine_default::read_thermal_zones() {
 				} else
 					delete zone;
 			}
+			disable_cpu_zone(zone_config);
 		}
 	}
 	current_zone_index = index;
@@ -623,6 +668,22 @@ int cthd_engine_default::read_cooling_devices() {
 	} else {
 		delete rapl_dev;
 	}
+
+	// Add RAPL mmio cooling device
+	if (!disable_active_power && parser.thermal_matched_platform_index() >= 0) {
+		cthd_sysfs_cdev_rapl *rapl_mmio_dev =
+				new cthd_sysfs_cdev_rapl(
+						current_cdev_index, 0,
+						"/sys/devices/virtual/powercap/intel-rapl-mmio/intel-rapl-mmio:0/");
+		rapl_mmio_dev->set_cdev_type("rapl_controller_mmio");
+		if (rapl_mmio_dev->update() == THD_SUCCESS) {
+			cdevs.push_back(rapl_mmio_dev);
+			++current_cdev_index;
+		} else {
+			delete rapl_mmio_dev;
+		}
+	}
+
 	// Add Intel P state driver as cdev
 	cthd_intel_p_state_cdev *pstate_dev = new cthd_intel_p_state_cdev(
 			current_cdev_index);
@@ -679,6 +740,18 @@ int cthd_engine_default::read_cooling_devices() {
 			delete backlight_dev;
 	}
 
+	cthd_cdev *cdev_amdgpu = search_cdev("amdgpu");
+	if (!cdev_amdgpu) {
+		cthd_cdev_kgl_amdgpu *cdev_amdgpu = new cthd_cdev_kgl_amdgpu(
+				current_cdev_index, 0);
+		cdev_amdgpu->set_cdev_type("amdgpu");
+		if (cdev_amdgpu->update() == THD_SUCCESS) {
+			cdevs.push_back(cdev_amdgpu);
+			++current_cdev_index;
+		} else
+			delete cdev_amdgpu;
+	}
+
 	// Dump all cooling devices
 	for (unsigned i = 0; i < cdevs.size(); ++i) {
 		cdevs[i]->cdev_dump();
@@ -707,4 +780,132 @@ int thd_engine_create_default_engine(bool ignore_cpuid_check,
 	}
 
 	return THD_SUCCESS;
+}
+
+void cthd_engine_default::workarounds()
+{
+	// Every 30 seconds repeat
+	if (!disable_active_power && !workaround_interval) {
+		workaround_rapl_mmio_power();
+		workaround_tcc_offset();
+		workaround_interval = 7;
+	} else {
+		--workaround_interval;
+	}
+}
+
+#ifndef ANDROID
+#include <cpuid.h>
+#include <sys/mman.h>
+#define BIT_ULL(nr)	(1ULL << (nr))
+#endif
+
+void cthd_engine_default::workaround_rapl_mmio_power(void)
+{
+#ifndef ANDROID
+	int map_fd;
+	void *rapl_mem;
+	unsigned char *rapl_pkg_pwr_addr;
+	unsigned long long pkg_power_limit;
+
+	unsigned int ebx, ecx, edx;
+	unsigned int fms, family, model;
+
+	csys_fs sys_fs;
+
+	if (!workaround_enabled)
+		return;
+
+	ecx = edx = 0;
+	__cpuid(1, fms, ebx, ecx, edx);
+	family = (fms >> 8) & 0xf;
+	model = (fms >> 4) & 0xf;
+	if (family == 6 || family == 0xf)
+		model += ((fms >> 16) & 0xf) << 4;
+
+	// Apply for KabyLake only
+	if (model != 0x8e && model != 0x9e)
+		return;
+
+	map_fd = open("/dev/mem", O_RDWR, 0);
+	if (map_fd < 0)
+		return;
+
+	rapl_mem = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd,
+			0xfed15000);
+	if (!rapl_mem || rapl_mem == MAP_FAILED) {
+		close(map_fd);
+	}
+
+	rapl_pkg_pwr_addr = ((unsigned char *)rapl_mem + 0x9a0);
+	pkg_power_limit = *(unsigned long long *)rapl_pkg_pwr_addr;
+	*(unsigned long long *)rapl_pkg_pwr_addr = pkg_power_limit
+			& ~BIT_ULL(15);
+
+	munmap(rapl_mem, 4096);
+	close(map_fd);
+#endif
+}
+
+void cthd_engine_default::workaround_tcc_offset(void)
+{
+#ifndef ANDROID
+	csys_fs sys_fs;
+	int tcc;
+
+	if (tcc_offset_checked && tcc_offset_low)
+		return;
+
+	if (parser.thermal_matched_platform_index() < 0) {
+		tcc_offset_checked = 1;
+		tcc_offset_low = 1;
+		return;
+	}
+
+	if (sys_fs.exists("/sys/bus/pci/devices/0000:00:04.0/tcc_offset_degree_celsius")) {
+		if (sys_fs.read("/sys/bus/pci/devices/0000:00:04.0/tcc_offset_degree_celsius", &tcc) <= 0) {
+			tcc_offset_checked = 1;
+			tcc_offset_low = 1;
+			return;
+		}
+
+		if (tcc > 10) {
+			int ret;
+
+			ret = sys_fs.write("/sys/bus/pci/devices/0000:00:04.0/tcc_offset_degree_celsius", 5);
+			if (ret < 0)
+				tcc_offset_low = 1; // probably locked so retryA
+
+			tcc_offset_checked = 1;
+		} else {
+			if (!tcc_offset_checked)
+				tcc_offset_low = 1;
+			tcc_offset_checked = 1;
+		}
+	} else {
+		csys_fs msr_sysfs;
+		int ret;
+
+		if(msr_sysfs.exists("/dev/cpu/0/msr")) {
+			unsigned long long val = 0;
+
+			ret = msr_sysfs.read("/dev/cpu/0/msr", 0x1a2, (char *)&val, sizeof(val));
+			if (ret > 0) {
+				int tcc;
+
+				tcc = (val >> 24) & 0xff;
+				if (tcc > 10) {
+					val &= ~(0xff << 24);
+					val |= (0x05 << 24);
+					msr_sysfs.write("/dev/cpu/0/msr", 0x1a2, val);
+					tcc_offset_checked = 1;
+				} else {
+					if (!tcc_offset_checked)
+						tcc_offset_low = 1;
+					tcc_offset_checked = 1;
+				}
+			}
+		}
+	}
+#endif
 }

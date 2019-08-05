@@ -1,3 +1,13 @@
+thermald (1.9.0-1) unstable; urgency=medium
+
+  * sync with latest upstream release 1.9 (LP: #1838590)
+  * Add upstream fix:
+    - dcdaf523393a Use correct format specifier for size_t
+  * Update postinst, postrm, postpreinst rn_conffile package version
+  * Update debian/compat to 12
+
+ -- Colin King <colin.king@canonical.com>  Mon, 5 Aug 2019 09:12:15 +0100
+
 thermald (1.8.0-1) unstable; urgency=medium
 
   * sync with latest upstream release 1.8

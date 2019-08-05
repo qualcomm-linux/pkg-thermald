@@ -38,7 +38,7 @@
 #   define   getdtablesize()	(_POSIX_OPEN_MAX)
 # endif
 // for AID_* constatns
-#include <private/android_filesystem_config.h>
+#include <cutils/android_filesystem_config.h>
 
 // getdtablesize() is removed from bionic/libc in LPDK*/
 // use POSIX alternative available. Otherwise fail
@@ -50,6 +50,8 @@
 int thd_poll_interval = 4; //in seconds
 
 bool thd_ignore_default_control = false;
+bool workaround_enabled = false;
+bool disable_active_power = false;
 
 static int pid_file_handle;
 
@@ -241,8 +243,8 @@ int main(int argc, char *argv[]) {
 	}
 	mkdir(TDCONFDIR, 0755); // Don't care return value as directory
 	if (!no_daemon) {
-		daemonize((char *) "/data/misc/thermal-daemon",
-				(char *) "/data/misc/thermal-daemon/thermald.pid");
+		daemonize((char *) "/data/vendor/thermal-daemon",
+				(char *) "/data/vendor/thermal-daemon/thermald.pid");
 	} else
 		signal(SIGINT, signal_handler);
 

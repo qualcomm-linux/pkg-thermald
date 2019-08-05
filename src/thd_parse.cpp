@@ -59,7 +59,8 @@ char *cthd_parse::char_trim(char *str) {
 }
 
 cthd_parse::cthd_parse() :
-		matched_thermal_info_index(-1), doc(NULL), root_element(NULL) {
+		matched_thermal_info_index(-1), doc(NULL), root_element(NULL), auto_config(
+				0) {
 	std::string name_conf = TDCONFDIR;
 	std::string name_run = TDRUNDIR;
 #ifdef ANDROID
@@ -81,11 +82,13 @@ int cthd_parse::parser_init(std::string config_file) {
 		if (conf_auto.is_open()) {
 			thd_log_warn("Using generated %s \n", filename_auto_conf.c_str());
 			xml_config_file = filename_auto_conf.c_str();
+			auto_config = 1;
 		} else {
 			ret = rel.generate_conf(filename_auto);
 			if (!ret) {
 				thd_log_warn("Using generated %s\n", filename_auto.c_str());
 				xml_config_file = filename_auto.c_str();
+				auto_config = 1;
 			} else {
 				xml_config_file = filename.c_str();
 			}
@@ -94,6 +97,7 @@ int cthd_parse::parser_init(std::string config_file) {
 		xml_config_file = config_file.c_str();
 	}
 
+	thd_log_info("Using config file %s\n", xml_config_file);
 	doc = xmlReadFile(xml_config_file, NULL, 0);
 	if (doc == NULL) {
 		thd_log_warn("error: could not parse file %s\n", xml_config_file);
@@ -103,6 +107,7 @@ int cthd_parse::parser_init(std::string config_file) {
 
 	if (root_element == NULL) {
 		thd_log_warn("error: could not get root element \n");
+		xmlFreeDoc(doc);
 		return THD_ERROR;
 	}
 
@@ -192,6 +197,11 @@ int cthd_parse::parse_new_trip_point(xmlNode * a_node, xmlDoc *doc,
 			DEBUG_PARSER_PRINT("node type: Element, name: %s value: %s\n", cur_node->name, xmlNodeListGetString(doc, cur_node->xmlChildrenNode, 1));
 			tmp_value = (char *) xmlNodeListGetString(doc,
 					cur_node->xmlChildrenNode, 1);
+
+			if (!tmp_value) {
+				continue;
+			}
+
 			if (!strcasecmp((const char*) cur_node->name, "Temperature")) {
 				trip_pt->temperature = atoi(tmp_value);
 			} else if (!strcasecmp((const char*) cur_node->name,
@@ -236,9 +246,7 @@ int cthd_parse::parse_new_trip_point(xmlNode * a_node, xmlDoc *doc,
 				parse_dependency_values(cur_node->children, doc,
 						&trip_pt->dependency);
 			}
-
-			if (tmp_value)
-				xmlFree(tmp_value);
+			xmlFree(tmp_value);
 		}
 	}
 
@@ -335,6 +343,7 @@ int cthd_parse::parse_new_cooling_dev(xmlNode * a_node, xmlDoc *doc,
 	cdev->status = 0;
 	cdev->pid_enable = false;
 	cdev->unit_val = ABSOULUTE_VALUE;
+	cdev->debounce_interval = 0;
 	for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
 			DEBUG_PARSER_PRINT("node type: Element, name: %s value: %s\n", cur_node->name, xmlNodeListGetString(doc, cur_node->xmlChildrenNode, 1));
@@ -535,6 +544,11 @@ int cthd_parse::parse_new_platform_info(xmlNode * a_node, xmlDoc *doc,
 			DEBUG_PARSER_PRINT("node type: Element, name: %s value: %s\n", cur_node->name, xmlNodeListGetString(doc, cur_node->xmlChildrenNode, 1));
 			tmp_value = (char*) xmlNodeListGetString(doc,
 					cur_node->xmlChildrenNode, 1);
+
+			if (!tmp_value) {
+				continue;
+			}
+
 			if (!strcasecmp((const char*) cur_node->name, "uuid")) {
 				info_ptr->uuid.assign((const char*) tmp_value);
 				string_trim(info_ptr->uuid);
@@ -564,9 +578,11 @@ int cthd_parse::parse_new_platform_info(xmlNode * a_node, xmlDoc *doc,
 			} else if (!strcasecmp((const char*) cur_node->name,
 				"PollingInterval")) {
 				info_ptr->polling_interval = atoi(tmp_value);
+			} else if (!strcasecmp((const char*) cur_node->name, "PPCC")) {
+				parse_ppcc(cur_node->children, doc, &info_ptr->ppcc);
+				info_ptr->ppcc.valid = 1;
 			}
-			if (tmp_value)
-				xmlFree(tmp_value);
+			xmlFree(tmp_value);
 		}
 	}
 
@@ -588,11 +604,46 @@ int cthd_parse::parse_new_platform(xmlNode * a_node, xmlDoc *doc,
 				info.cooling_devs.clear();
 				info.zones.clear();
 				info.polling_interval = 0;
+				info.ppcc.valid = 0;
 				parse_new_platform_info(cur_node->children, doc, &info);
 				thermal_info_list.push_back(info);
 			}
 			if (tmp_value)
 				xmlFree(tmp_value);
+		}
+	}
+
+	return THD_SUCCESS;
+}
+
+int cthd_parse::parse_ppcc(xmlNode * a_node, xmlDoc *doc, ppcc_t *ppcc) {
+	xmlNode *cur_node = NULL;
+	char *tmp_value;
+
+	for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
+		if (cur_node->type == XML_ELEMENT_NODE) {
+			DEBUG_PARSER_PRINT("node type: Element, name: %s value: %s\n", cur_node->name, xmlNodeListGetString(doc, cur_node->xmlChildrenNode, 1));
+			tmp_value = (char*) xmlNodeListGetString(doc,
+					cur_node->xmlChildrenNode, 1);
+			if (tmp_value) {
+				if (!strcasecmp((const char*) cur_node->name,
+						"PowerLimitMinimum")) {
+					ppcc->power_limit_min = atof(tmp_value);
+				} else if (!strcasecmp((const char*) cur_node->name,
+						"PowerLimitMaximum")) {
+					ppcc->power_limit_max = atof(tmp_value);
+				} else if (!strcasecmp((const char*) cur_node->name,
+						"TimeWindowMinimum")) {
+					ppcc->time_wind_min = atof(tmp_value);
+				} else if (!strcasecmp((const char*) cur_node->name,
+						"TimeWindowMaximum")) {
+					ppcc->time_wind_max = atof(tmp_value);
+				} else if (!strcasecmp((const char*) cur_node->name,
+						"StepSize")) {
+					ppcc->step_size = atof(tmp_value);
+				}
+				xmlFree(tmp_value);
+			}
 		}
 	}
 
@@ -659,6 +710,14 @@ void cthd_parse::dump_thermal_conf() {
 		thd_log_info("UUID: %s\n", thermal_info_list[i].uuid.c_str());
 		thd_log_info("type: %d\n", thermal_info_list[i].default_preference);
 		thd_log_info("Polling Interval: %d seconds\n", thermal_info_list[i].polling_interval);
+
+		if (thermal_info_list[i].ppcc.valid) {
+			thd_log_info("PPCC: max_power_limit %d\n", thermal_info_list[i].ppcc.power_limit_max);
+			thd_log_info("PPCC: min_power_limit %d\n", thermal_info_list[i].ppcc.power_limit_min);
+			thd_log_info("PPCC: time_window_max %d\n", thermal_info_list[i].ppcc.time_wind_max);
+			thd_log_info("PPCC: time_window_min %d\n", thermal_info_list[i].ppcc.time_wind_min);
+			thd_log_info("PPCC: step_size %d\n", thermal_info_list[i].ppcc.step_size);
+		}
 
 		for (unsigned int j = 0; j < thermal_info_list[i].sensors.size(); ++j) {
 			thd_log_info("\tSensor %u \n", j);
@@ -859,6 +918,13 @@ thermal_zone_t *cthd_parse::get_zone_dev_index(unsigned int zone_index) {
 	else
 		return NULL;
 
+}
+
+ppcc_t *cthd_parse::get_ppcc_param() {
+	if (matched_thermal_info_index >= 0 && thermal_info_list[matched_thermal_info_index].ppcc.valid)
+		return &thermal_info_list[matched_thermal_info_index].ppcc;
+
+	return NULL;
 }
 
 bool cthd_parse::pid_status(int cdev_index) {

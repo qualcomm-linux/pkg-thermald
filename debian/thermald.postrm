@@ -1,6 +1,0 @@
-#!/bin/sh
-set -e
-
-dpkg-maintscript-helper rm_conffile /etc/init/thermald.conf 1.7.0-3 thermald -- "$@"
-
-#DEBHELPER#
