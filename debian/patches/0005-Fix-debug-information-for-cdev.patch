@@ -1,0 +1,38 @@
+From baed107622197332edf3d73ba06486531634c5f8 Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada
+ <Srinivas Pandruvada srinivas.pandruvada@linux.intel.com>
+Date: Tue, 10 Dec 2019 09:51:40 -0800
+Subject: [PATCH] Fix debug information for cdev
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+When separate increment and decrement value is used, then print them
+for debug.
+---
+ src/thd_cdev.h | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/src/thd_cdev.h b/src/thd_cdev.h
+index 3d3960f..ca931d0 100644
+--- a/src/thd_cdev.h
++++ b/src/thd_cdev.h
+@@ -253,9 +253,15 @@ public:
+ 	}
+ 
+ 	void cdev_dump() {
+-		thd_log_info("%d: %s, C:%d MN: %d MX:%d ST:%d pt:%s rd_bk %d \n", index,
++		if (inc_val || dec_val){
++			thd_log_info("%d: %s, C:%d MN: %d MX:%d Inc ST:%d Dec ST:%d pt:%s rd_bk %d \n", index,
++				type_str.c_str(), curr_state, min_state, max_state, inc_val, dec_val,
++				get_base_path().c_str(), read_back);
++		} else {
++			thd_log_info("%d: %s, C:%d MN: %d MX:%d ST:%d pt:%s rd_bk %d \n", index,
+ 				type_str.c_str(), curr_state, min_state, max_state, inc_dec_val,
+ 				get_base_path().c_str(), read_back);
++		}
+ 	}
+ };
+ 
+-- 
+2.24.0
+

@@ -1,3 +1,11 @@
+thermald (1.9.1-1) unstable; urgency=medium
+
+  * sync with latest upstream release 1.9.1
+  * Add upstream fix:
+    - baed10762219 Fix debug information for cdev
+
+ -- Colin King <colin.king@canonical.com>  Sun, 15 Dec 2019 22:18:11 +0000
+
 thermald (1.9.0-1) unstable; urgency=medium
 
   * sync with latest upstream release 1.9 (LP: #1838590)
