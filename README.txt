@@ -24,11 +24,14 @@ Building and executing on Fedora
 Install
 
 	yum install automake
+	yum install autoconf-archive
 	yum install gcc
 	yum install gcc-c++
 	yum install glib-devel
 	yum install dbus-glib-devel
 	yum install libxml2-devel
+
+Replace yum with dnf for later Fedora versions.
 
 2
 Build
@@ -55,6 +58,7 @@ Build
 Building on Ubuntu
 1. Install
 	sudo apt-get install autoconf
+	sudo apt-get install autoconf-archive
 	sudo apt-get install g++
 	sudo apt-get install libglib2.0-dev
 	sudo apt-get install libdbus-1-dev
@@ -88,12 +92,23 @@ Install
 	zypper in glib2-devel
 	zypper in dbus-1-glib-devel
 	zypper in libxml2-devel
+	zypper in automake autoconf-archive
 
 For build, follow the same procedure as Fedora.
 
 -------------------------------------------
 
 Releases
+
+Release 2.1
+- Workaround for invalid PPCC power limits
+- Reduce polling for power when PPCC is not present
+
+Release 2.0
+- Tiger Lake support
+- PL1 limit setting from PPCC as is
+- Optimize multi step, multi zone control
+- Add new tag for product identification "product_sku"
 
 Release 1.9.1
 - Remove default CPU temperature compensation for auto generated configuration from dptfxtract

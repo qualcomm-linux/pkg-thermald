@@ -39,73 +39,91 @@
 #include "thd_cdev.h"
 #include "thd_engine.h"
 
+int cthd_cdev::thd_clamp_state_min(int _state)
+{
+	if ((min_state < max_state && _state < min_state)
+			|| (min_state > max_state && _state > min_state))
+		return min_state;
+	else
+		return _state;
+}
+
+int cthd_cdev::thd_clamp_state_max(int _state)
+{
+	if ((min_state < max_state && _state > max_state)
+			|| (min_state > max_state && _state < max_state))
+		return max_state;
+	else
+		return _state;
+}
+
 int cthd_cdev::thd_cdev_exponential_controller(int set_point, int target_temp,
 		int temperature, int state, int zone_id) {
 
 	int control = state;
+	int curr_state, max_state, _state;
 
-	curr_state = get_curr_state();
-	if ((min_state < max_state && curr_state < min_state)
-			|| (min_state > max_state && curr_state > min_state))
-		curr_state = min_state;
 	max_state = get_max_state();
-	thd_log_debug("thd_cdev_set_%d:curr state %d max state %d\n", index,
-			curr_state, max_state);
+
 	if (state) {
-		if ((min_state < max_state && curr_state < max_state)
-				|| (min_state > max_state && curr_state > max_state)) {
-			int state;
+		// Get the latest state, which for some devices read the state from the hardware
+		curr_state = get_curr_state(true);
+		// Clamp the current state to min_state, as we start from min to max for
+		// activation of a cooling device
+		curr_state = thd_clamp_state_min(curr_state);
+		thd_log_debug("thd_cdev_set_%d:curr state %d max state %d\n", index,
+				curr_state, max_state);
+
+		if (inc_val)
+			_state = curr_state + inc_val;
+		else
+			_state = curr_state + inc_dec_val;
+
+		if (trend_increase) {
+			// This means this is a repeat call for activation
+			if (curr_pow == 0)
+				base_pow_state = curr_state;
+			++curr_pow;
 
 			if (inc_val)
-				state = curr_state + inc_val;
+				_state = base_pow_state + int_2_pow(curr_pow) * inc_val;
 			else
-				state = curr_state + inc_dec_val;
-			if (trend_increase) {
-				if (curr_pow == 0)
-					base_pow_state = curr_state;
-				++curr_pow;
+				_state = base_pow_state + int_2_pow(curr_pow) * inc_dec_val;
 
-				if (inc_val)
-					state = base_pow_state + int_2_pow(curr_pow) * inc_val;
-				else
-					state = base_pow_state + int_2_pow(curr_pow) * inc_dec_val;
+			thd_log_info(
+					"cdev index:%d consecutive call, increment exponentially state %d (min %d max %d)\n",
+					index, _state, min_state, max_state);
 
-				thd_log_info(
-						"cdev index:%d consecutive call, increment exponentially state %d (min %d max %d)\n",
-						index, state, min_state, max_state);
-				if ((min_state < max_state && state >= max_state)
-						|| (min_state > max_state && state <= max_state)) {
-					state = max_state;
-					curr_pow = 0;
-					curr_state = max_state;
-				}
-			} else {
-				curr_pow = 0;
-			}
-			trend_increase = true;
-			if ((min_state < max_state && state > max_state)
-					|| (min_state > max_state && state < max_state))
-				state = max_state;
-			thd_log_debug("op->device:%s %d\n", type_str.c_str(), state);
-			set_curr_state(state, control);
+			// Make sure that the state is not beyond max_state
+			_state = thd_clamp_state_max(_state);
+		} else {
+			curr_pow = 0;
 		}
+		trend_increase = true;
+		thd_log_debug("op->device:%s %d\n", type_str.c_str(), _state);
+		set_curr_state(_state, control);
 	} else {
+		// Get the latest state, which is not the latest from the hardware but last set state to the device
+		curr_state = get_curr_state();
+		curr_state = thd_clamp_state_max(curr_state);
+
+		thd_log_debug("thd_cdev_set_%d:curr state %d max state %d\n", index,
+				curr_state, max_state);
+
 		curr_pow = 0;
 		trend_increase = false;
-		if (((min_state < max_state && curr_state > min_state)
-				|| (min_state > max_state && curr_state < min_state))
-				&& auto_down_adjust == false) {
-			int state;
+
+		if (auto_down_adjust == false) {
 
 			if (dec_val)
-				state = curr_state - dec_val;
+				_state = curr_state - dec_val;
 			else
-				state = curr_state - inc_dec_val;
-			if ((min_state < max_state && state < min_state)
-					|| (min_state > max_state && state > min_state))
-				state = min_state;
-			thd_log_debug("op->device:%s %d\n", type_str.c_str(), state);
-			set_curr_state(state, control);
+				_state = curr_state - inc_dec_val;
+
+			// Make sure that it is not beyond min_state
+			_state = thd_clamp_state_min(_state);
+			thd_log_info("op->device:%s %d\n", type_str.c_str(), _state);
+			set_curr_state(_state, control);
 		} else {
 			thd_log_debug("op->device: force min %s %d\n", type_str.c_str(),
 					min_state);
@@ -171,23 +189,25 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
 	time_t tm;
 	int ret;
 
+	if (!state && in_min_state() && zone_trip_limits.size() == 0) {
+		// This means that the there is no device in activated state
+		// There are no entries in the list, cdev is min state and
+		// there is a call for deactivation.
+		return THD_SUCCESS;
+	}
+
 	time(&tm);
 	thd_log_info(
 			">>thd_cdev_set_state temperature %d:%d index:%d state:%d :zone:%d trip_id:%d target_state_valid:%d target_value :%d force:%d\n",
 			target_temp, temperature, index, state, zone_id, trip_id,
 			target_state_valid, target_value, force);
 
-	if (!force && last_state == state && state
-			&& (tm - last_action_time) <= debounce_interval) {
-		thd_log_debug(
-				"Ignore: delay < debounce interval : %d, %d, %d, %d, %d\n",
-				set_point, temperature, index, get_curr_state(), max_state);
-		return THD_SUCCESS;
-	}
-	last_state = state;
-
 	if (state) {
 		bool found = false;
+		bool first_entry = false;
+
+		if (zone_trip_limits.size() == 0)
+			first_entry = true;
 
 		// Search for the zone and trip id in the list
 		for (unsigned int i = 0; i < zone_trip_limits.size(); ++i) {
@@ -220,6 +240,27 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
 				}
 			}
 		}
+
+		zone_trip_limits_t limit;
+
+		limit = zone_trip_limits[zone_trip_limits.size() - 1];
+		target_value = limit.target_value;
+		target_state_valid = limit.target_state_valid;
+		if (!first_entry && target_state_valid
+				&& cmp_current_state(
+						map_target_state(target_state_valid, target_value))
+						<= 0) {
+			thd_log_info("Already more constraint\n");
+			return THD_SUCCESS;
+		}
+
+		if (!force && last_state == state && state
+			&& (tm - last_action_time) <= debounce_interval) {
+			thd_log_debug(
+				"Ignore: delay < debounce interval : %d, %d, %d, %d, %d\n",
+				set_point, temperature, index, get_curr_state(), max_state);
+			return THD_SUCCESS;
+		}
 	} else {
 		thd_log_debug("zone_trip_limits.size() %zu\n", (size_t)zone_trip_limits.size());
 		if (zone_trip_limits.size() > 0) {
@@ -227,36 +268,32 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
 			int _target_state_valid = 0;
 			int i;
 			int erased = 0;
+			zone_trip_limits_t limit;
 
-			// Just remove the current zone requesting to turn off
-			for (i = 0; i < length; ++i) {
-				thd_log_info("match zone %d trip %d clamp_valid %d clamp %d\n",
-						zone_trip_limits[i].zone, zone_trip_limits[i].trip,
-						zone_trip_limits[i].target_state_valid,
-						zone_trip_limits[i].target_value);
+			if (length) {
+				limit = zone_trip_limits[zone_trip_limits.size() - 1];
 
-				if (zone_trip_limits[i].zone == zone_id
-						&& zone_trip_limits[i].trip == trip_id
-						&& (force || target_state_valid
-								== zone_trip_limits[i].target_state_valid)
-						&& (force || target_value == zone_trip_limits[i].target_value)) {
-					_target_state_valid = zone_trip_limits[i].target_state_valid;
+				if (limit.zone == zone_id && limit.trip == trip_id) {
+					i = zone_trip_limits.size() - 1;
+					_target_state_valid = limit.target_state_valid;
 					zone_trip_limits.erase(zone_trip_limits.begin() + i);
 					thd_log_info("Erased  [%d: %d %d\n", zone_id, trip_id,
 							target_value);
 					erased = 1;
-					break;
+
 				}
 			}
 
 			if (zone_trip_limits.size()) {
-				zone_trip_limits_t limit;
-
 				limit = zone_trip_limits[zone_trip_limits.size() - 1];
 				target_value = limit.target_value;
 				target_state_valid = limit.target_state_valid;
 				zone_id = limit.zone;
 				trip_id = limit.trip;
+				// If the above loop caused erase of last control
+				// then the next one in the line will be activated.
+				// If not erased, this means that the previous
+				// lower control is still active.
 				if (!erased)
 				{
 					thd_log_info(
@@ -286,10 +323,13 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
 	}
 
 	last_action_time = tm;
+	last_state = state;
 
 	curr_state = get_curr_state();
 	if (curr_state == get_min_state()) {
 		control_begin();
+		curr_pow = 0;
+		trend_increase = false;
 	}
 
 	if (target_state_valid) {
