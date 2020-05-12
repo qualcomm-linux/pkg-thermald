@@ -242,15 +242,9 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 				time_t tm;
 				time(&tm);
 				if ((tm - cdevs[i].last_op_time) < cdevs[i].sampling_priod) {
-#if defined __x86_64__ && defined __ILP32__
-					thd_log_info("Too early to act zone:%d index %d tm %lld\n",
+					thd_log_info("Too early to act zone:%d index %d tm %jd\n",
 							zone_id, cdev->thd_cdev_get_index(),
-							tm - cdevs[i].last_op_time);
-#else
-					thd_log_info("Too early to act zone:%d index %d tm %ld\n",
-							zone_id, cdev->thd_cdev_get_index(),
-							tm - cdevs[i].last_op_time);
-#endif
+							(intmax_t)tm - cdevs[i].last_op_time);
 					break;
 				}
 				cdevs[i].last_op_time = tm;
@@ -259,15 +253,8 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 					cdev->get_cdev_type().c_str());
 			/*
 			 * When the cdev is already in max state, we skip this cdev.
-			 * Also when the target state if any for the current trip is greater
-			 * or equal than the current state of the cdev, then also skip.
 			 */
-			if (cdev->in_max_state()
-					|| (cdevs[i].target_state_valid
-							&& cdev->cmp_current_state(
-									cdev->map_target_state(
-											cdevs[i].target_state_valid,
-											cdevs[i].target_state)) <= 0)) {
+			if (cdev->in_max_state()) {
 				thd_log_debug("Need to switch to next cdev target %d \n",
 						cdev->map_target_state(cdevs[i].target_state_valid,
 								cdevs[i].target_state));
@@ -296,6 +283,8 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 			cthd_cdev *cdev = cdevs[i].cdev;
 			thd_log_debug("cdev at index %d:%s\n", cdev->thd_cdev_get_index(),
 					cdev->get_cdev_type().c_str());
+
+
 			if (cdev->in_min_state()) {
 				thd_log_debug("Need to switch to next cdev \n");
 				// No scope of control with this cdev
@@ -311,10 +300,10 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 							cdevs[i].target_state), &cdevs[i].pid_param,
 					cdevs[i].pid, false);
 
-			if (control_type == SEQUENTIAL) {
-				// Only one cdev activation
-				break;
-			}
+				if (control_type == SEQUENTIAL) {
+					// Only one cdev activation
+					break;
+				}
 		}
 	}
 

@@ -1,3 +1,23 @@
+thermald (2.1-1) unstable; urgency=medium
+
+  * sync with latest upstream release 2.1
+  * Add autoconf-archive to Build-Depends
+  * Add debhelper-compat (=12), remove debian/compat
+
+ -- Colin King <colin.king@canonical.com>  Tue, 12 May 2020 11:01:23 +0100
+
+thermald (1.9.1-1ubuntu1) groovy; urgency=medium
+
+  * Intel Tiger Lake support (LP: #1876066)
+
+ -- Alex Tu <alex.tu@canonical.com>  Thu, 30 Apr 2020 18:16:16 +0800
+
+thermald (1.9.1-1build1) focal; urgency=medium
+
+  * No-change rebuild for libgcc-s1 package name change.
+
+ -- Matthias Klose <doko@ubuntu.com>  Sat, 21 Mar 2020 13:29:32 +0100
+
 thermald (1.9.1-1) unstable; urgency=medium
 
   * sync with latest upstream release 1.9.1

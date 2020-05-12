@@ -265,22 +265,21 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 		if (i == zones.size()) {
 			thd_log_info("Proceed without polling mode! \n");
 		}
-	}
 
-	uevent_fd = poll_fd_cnt;
-	poll_fds[uevent_fd].fd = kobj_uevent.kobj_uevent_open();
-	if (poll_fds[uevent_fd].fd < 0) {
-		thd_log_warn("Invalid kobj_uevent handle\n");
-		uevent_fd = -1;
-		goto skip_kobj;
+		uevent_fd = poll_fd_cnt;
+		poll_fds[uevent_fd].fd = kobj_uevent.kobj_uevent_open();
+		if (poll_fds[uevent_fd].fd < 0) {
+			thd_log_warn("Invalid kobj_uevent handle\n");
+			uevent_fd = -1;
+			goto skip_kobj;
+		}
+		thd_log_info("FD = %d\n", poll_fds[uevent_fd].fd);
+		kobj_uevent.register_dev_path(
+				(char *) "/devices/virtual/thermal/thermal_zone");
+		poll_fds[uevent_fd].events = POLLIN;
+		poll_fds[uevent_fd].revents = 0;
+		poll_fd_cnt++;
 	}
-	thd_log_info("FD = %d\n", poll_fds[uevent_fd].fd);
-	kobj_uevent.register_dev_path(
-			(char *) "/devices/virtual/thermal/thermal_zone");
-	poll_fds[uevent_fd].events = POLLIN;
-	poll_fds[uevent_fd].revents = 0;
-	poll_fd_cnt++;
-
 	skip_kobj:
 #ifndef DISABLE_PTHREAD
 	// Create thread
@@ -554,9 +553,13 @@ void cthd_engine::takeover_thermal_control() {
 
 				policy << "thermal_zone" << i << "/policy";
 				if (sysfs.exists(policy.str().c_str())) {
-					sysfs.read(policy.str(), curr_policy);
-					zone_preferences.push_back(curr_policy);
-					sysfs.write(policy.str(), "user_space");
+					int ret;
+
+					ret = sysfs.read(policy.str(), curr_policy);
+					if (ret >= 0) {
+						zone_preferences.push_back(curr_policy);
+						sysfs.write(policy.str(), "user_space");
+					}
 				}
 			}
 		}
@@ -659,6 +662,8 @@ static supported_ids_t id_table[] = {
 		{ 6, 0x9e }, // kabylake
 		{ 6, 0x66 }, // Cannonlake
 		{ 6, 0x7e }, // Icelake
+		{ 6, 0x8c }, // Tigerlake_L
+		{ 6, 0x8d }, // Tigerlake
 		{ 0, 0 } // Last Invalid entry
 };
 #endif
@@ -714,6 +719,13 @@ void cthd_engine::thd_read_default_thermal_sensors() {
 	struct dirent *entry;
 	const std::string base_path = "/sys/class/thermal/";
 	int max_index = 0;
+
+	if ((dir = opendir("/sys/class/thermal/thermal_zone1/")) == NULL) {
+		thd_log_info("Waiting for thermal sysfs to be ready\n");
+		sleep(2);
+	} else {
+		closedir(dir);
+	}
 
 	thd_log_debug("thd_read_default_thermal_sensors \n");
 	if ((dir = opendir(base_path.c_str())) != NULL) {

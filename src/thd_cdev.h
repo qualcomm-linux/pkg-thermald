@@ -79,7 +79,8 @@ private:
 	}
 	int thd_cdev_exponential_controller(int set_point, int target_temp,
 			int temperature, int state, int arg);
-
+	int thd_clamp_state_min(int _state);
+	int thd_clamp_state_max(int _state);
 public:
 	static const int default_debounce_interval = 2; // In seconds
 	cthd_cdev(unsigned int _index, std::string control_path) :
@@ -253,9 +254,15 @@ public:
 	}
 
 	void cdev_dump() {
-		thd_log_info("%d: %s, C:%d MN: %d MX:%d ST:%d pt:%s rd_bk %d \n", index,
+		if (inc_val || dec_val){
+			thd_log_info("%d: %s, C:%d MN: %d MX:%d Inc ST:%d Dec ST:%d pt:%s rd_bk %d \n", index,
+				type_str.c_str(), curr_state, min_state, max_state, inc_val, dec_val,
+				get_base_path().c_str(), read_back);
+		} else {
+			thd_log_info("%d: %s, C:%d MN: %d MX:%d ST:%d pt:%s rd_bk %d \n", index,
 				type_str.c_str(), curr_state, min_state, max_state, inc_dec_val,
 				get_base_path().c_str(), read_back);
+		}
 	}
 };
 
