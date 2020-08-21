@@ -1,10 +1,19 @@
 #!/usr/bin/make -f
 
+export DH_VERBOSE=1
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 include /usr/share/dpkg/default.mk
 
 # this path for systemdsystemunitdir is correct for Debian, and avoids
 # needing to build-depend on systemd for systemd.pc
+
+override_dh_update_autotools_config:
+	echo "HERE"
+	pwd
+	mkdir -p m4
+	aclocal --install
+	gtkdocize --copy --flavour no-tmpl
+
 override_dh_auto_configure:
 	dh_auto_configure -- --with-systemdsystemunitdir=/lib/systemd/system
 

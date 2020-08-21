@@ -80,13 +80,13 @@ int cthd_parse::parser_init(std::string config_file) {
 	if (config_file.empty()) {
 		std::ifstream conf_auto(filename_auto_conf.c_str());
 		if (conf_auto.is_open()) {
-			thd_log_warn("Using generated %s \n", filename_auto_conf.c_str());
+			thd_log_msg("Using generated %s \n", filename_auto_conf.c_str());
 			xml_config_file = filename_auto_conf.c_str();
 			auto_config = 1;
 		} else {
 			ret = rel.generate_conf(filename_auto);
 			if (!ret) {
-				thd_log_warn("Using generated %s\n", filename_auto.c_str());
+				thd_log_msg("Using generated %s\n", filename_auto.c_str());
 				xml_config_file = filename_auto.c_str();
 				auto_config = 1;
 			} else {
@@ -97,7 +97,16 @@ int cthd_parse::parser_init(std::string config_file) {
 		xml_config_file = config_file.c_str();
 	}
 
-	thd_log_info("Using config file %s\n", xml_config_file);
+	/* We have not tested existance yet in this case. */
+	if (!auto_config) {
+		std::ifstream conf(xml_config_file);
+		if (!conf.is_open()) {
+			thd_log_msg("Config file %s does not exist\n", xml_config_file);
+			return THD_ERROR;
+		}
+	}
+
+	thd_log_msg("Using config file %s\n", xml_config_file);
 	doc = xmlReadFile(xml_config_file, NULL, 0);
 	if (doc == NULL) {
 		thd_log_warn("error: could not parse file %s\n", xml_config_file);
@@ -538,6 +547,7 @@ int cthd_parse::parse_new_platform_info(xmlNode * a_node, xmlDoc *doc,
 	char *tmp_value;
 
 	info_ptr->default_preference = PREF_ENERGY_CONSERVE;
+	info_ptr->polling_interval = 0;
 
 	for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE) {
@@ -953,7 +963,10 @@ thermal_zone_t *cthd_parse::get_zone_dev_index(unsigned int zone_index) {
 
 }
 
-ppcc_t *cthd_parse::get_ppcc_param() {
+ppcc_t *cthd_parse::get_ppcc_param(std::string name) {
+	if (name != "TCPU.D0")
+		return NULL;
+
 	if (matched_thermal_info_index >= 0 && thermal_info_list[matched_thermal_info_index].ppcc.valid)
 		return &thermal_info_list[matched_thermal_info_index].ppcc;
 

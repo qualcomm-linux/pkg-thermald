@@ -35,7 +35,7 @@ int _temp, unsigned int _hyst, int _zone_id, int _sensor_id,
 		index(_index), type(_type), temp(_temp), hyst(_hyst), control_type(
 				_control_type), zone_id(_zone_id), sensor_id(_sensor_id), trip_on(
 				false), poll_on(false), depend_cdev(NULL), depend_cdev_state(0), depend_cdev_state_rel(
-				EQUAL) {
+				EQUAL), crit_trip_count(0) {
 	thd_log_debug("Add trip pt %d:%d:0x%x:%d:%d\n", type, zone_id, sensor_id,
 			temp, hyst);
 }
@@ -94,6 +94,9 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 
 	*reset = false;
 
+	if (type == INVALID_TRIP_TYPE)
+		return false;
+
 	if (depend_cdev && read_temp >= temp) {
 		int _state = depend_cdev->get_curr_state();
 		int valid = 0;
@@ -141,8 +144,13 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 	if (type == CRITICAL) {
 		int ret = -1;
 
-		if (read_temp >= temp) {
+		if (!ignore_critical && read_temp >= temp) {
 			thd_log_warn("critical temp reached \n");
+			if (crit_trip_count < consecutive_critical_events) {
+				++crit_trip_count;
+				return true;
+			}
+			crit_trip_count = 0;
 			sync();
 #ifdef ANDROID
 			ret = property_set("sys.powerctl", "shutdown,thermal");
@@ -157,14 +165,22 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 
 			return true;
 		}
+		crit_trip_count = 0;
 	}
 	if (type == HOT) {
-		if (read_temp >= temp) {
+		if (!ignore_critical && read_temp >= temp) {
+			thd_log_warn("Hot temp reached \n");
+			if (crit_trip_count < consecutive_critical_events) {
+				++crit_trip_count;
+				return true;
+			}
+			crit_trip_count = 0;
 			thd_log_warn("Hot temp reached \n");
 			csys_fs power("/sys/power/");
 			power.write("state", "mem");
 			return true;
 		}
+		crit_trip_count = 0;
 	}
 
 	if (type == POLLING && sensor_id != DEFAULT_SENSOR_ID) {
@@ -242,7 +258,7 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
 				time_t tm;
 				time(&tm);
 				if ((tm - cdevs[i].last_op_time) < cdevs[i].sampling_priod) {
-					thd_log_info("Too early to act zone:%d index %d tm %jd\n",
+					thd_log_debug("Too early to act zone:%d index %d tm %jd\n",
 							zone_id, cdev->thd_cdev_get_index(),
 							(intmax_t)tm - cdevs[i].last_op_time);
 					break;
@@ -348,13 +364,14 @@ int cthd_trip_point::thd_trip_point_add_cdev_index(int _index, int influence) {
 	}
 }
 
-void cthd_trip_point::thd_trip_cdev_state_reset() {
-	thd_log_info("thd_trip_cdev_state_reset \n");
+void cthd_trip_point::thd_trip_cdev_state_reset(int force) {
+	thd_log_debug("thd_trip_cdev_state_reset \n");
 	for (int i = cdevs.size() - 1; i >= 0; --i) {
 		cthd_cdev *cdev = cdevs[i].cdev;
-		thd_log_info("thd_trip_cdev_state_reset index %d:%s\n",
+		thd_log_debug("thd_trip_cdev_state_reset index %d:%s\n",
 				cdev->thd_cdev_get_index(), cdev->get_cdev_type().c_str());
-		if (cdev->in_min_state()) {
+
+		if (!force && cdev->in_min_state()) {
 			thd_log_debug("Need to switch to next cdev \n");
 			// No scope of control with this cdev
 			continue;

@@ -1,17 +1,21 @@
 AC_PREREQ(1.0)
 
 m4_define([td_major_version], [2])
-m4_define([td_minor_version], [1])
+m4_define([td_minor_version], [3])
 m4_define([td_version],
           [td_major_version.td_minor_version])
 
 AC_INIT([thermald], [td_version], [], [thermald])
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
+AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR(build-aux)
 AC_CONFIG_HEADERS([config.h])
 
 AM_INIT_AUTOMAKE([1.11 foreign no-define subdir-objects])
 AM_MAINTAINER_MODE([enable])
+
+GTK_DOC_CHECK([1.11],[--flavour no-tmpl])
 
 AC_ARG_WITH(dbus-sys-dir, AS_HELP_STRING([--with-dbus-sys-dir=DIR], [where D-BUS system.d directory is]))
 if test -n "$with_dbus_sys_dir" ; then
@@ -70,6 +74,13 @@ AC_SUBST(GLIB_LIBS)
 
 PKG_CHECK_MODULES(XML, libxml-2.0 >= 2.4)
 
+AC_PATH_PROG([GDBUS_CODEGEN],[gdbus-codegen])
+PKG_CHECK_MODULES(LZMA, liblzma)
+
+PKG_CHECK_MODULES(UPOWER, upower-glib)
+
+PKG_CHECK_MODULES(EVDEV, libevdev)
+
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
@@ -84,7 +95,6 @@ for flag in \
     -Wall \
     -Wclobbered \
     -Wempty-body \
-    -Werror \
     -Wformat \
     -Wignored-qualifiers \
     -Wmissing-field-initializers \
@@ -100,7 +110,12 @@ for flag in \
 done
 ], [AC_MSG_ERROR([AX_CHECK_COMPILE_FLAG not found, you'll need to install autoconf-archive])])
 
+AC_ARG_ENABLE(werror, AS_HELP_STRING([--disable-werror], [Disable -Werror]))
+AS_IF([test "x$enable_werror" != "xno"], [CXXFLAGS="$CXXFLAGS -Werror"])
+
 AC_CONFIG_FILES([Makefile
+                 docs/Makefile
+                 docs/version.xml
                  data/Makefile])
 
 AC_OUTPUT

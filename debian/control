@@ -7,11 +7,15 @@ Standards-Version: 4.1.2
 Build-Depends: debhelper (>= 13),
                debhelper-compat (=13),
                autoconf,
+               autoconf-archive,
+               gtk-doc-tools,
+               libupower-glib-dev,
+               liblzma-dev,
+               libevdev-dev,
                libglib2.0-dev,
                libdbus-1-dev,
                libdbus-glib-1-dev,
                libxml2-dev,
-               autoconf-archive
 Homepage: https://github.com/01org/thermal_daemon
 
 Package: thermald

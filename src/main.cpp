@@ -42,6 +42,7 @@
 #include "thermald.h"
 #include "thd_preference.h"
 #include "thd_engine.h"
+#include "thd_engine_adaptive.h"
 #include "thd_engine_default.h"
 #include "thd_parse.h"
 #include <syslog.h>
@@ -58,10 +59,11 @@ static const char *lock_file = TDRUNDIR "/thermald.pid";
 
 // Default log level
 static int thd_log_level = G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL
-		| G_LOG_LEVEL_WARNING;
+		| G_LOG_LEVEL_WARNING | G_LOG_LEVEL_MESSAGE;
 
 // Daemonize or not
 static gboolean thd_daemonize;
+static gboolean use_syslog;
 
 // Disable dbus
 static gboolean dbus_enable;
@@ -72,6 +74,7 @@ int thd_poll_interval = 4; //in seconds
 bool thd_ignore_default_control = false;
 bool workaround_enabled = false;
 bool disable_active_power = false;
+bool ignore_critical = false;
 
 // check cpuid
 static gboolean ignore_cpuid_check = false;
@@ -120,10 +123,10 @@ void thd_logger(const gchar *log_domain, GLogLevelFlags log_level,
 
 	seconds = time(NULL);
 
-	if (thd_daemonize)
-		syslog(syslog_priority, "[%ld]%s%s", seconds, prefix, message);
+	if (use_syslog)
+		syslog(syslog_priority, "%s", message);
 	else
-		g_print("[%ld]%s%s", seconds, prefix, message);
+		g_print("[%lld]%s%s", (long long) seconds, prefix, message);
 
 }
 
@@ -171,14 +174,18 @@ int main(int argc, char *argv[]) {
 	gboolean log_info = FALSE;
 	gboolean log_debug = FALSE;
 	gboolean no_daemon = FALSE;
+	gboolean systemd = FALSE;
 	gboolean test_mode = FALSE;
+	gboolean adaptive = FALSE;
 	gboolean ignore_default_control = FALSE;
 	gchar *conf_file = NULL;
 	gint poll_interval = -1;
 	gboolean success;
 	GOptionContext *opt_ctx;
+	int ret;
 
 	thd_daemonize = TRUE;
+	use_syslog = TRUE;
 	dbus_enable = FALSE;
 
 	GOptionEntry options[] = {
@@ -186,12 +193,16 @@ int main(int argc, char *argv[]) {
 					&show_version, N_("Print thermald version and exit"), NULL },
 			{ "no-daemon", 0, 0, G_OPTION_ARG_NONE, &no_daemon, N_(
 					"Don't become a daemon: Default is daemon mode"), NULL },
+			{ "systemd", 0, 0, G_OPTION_ARG_NONE, &systemd, N_(
+					"Assume daemon is started by systemd"), NULL },
 			{ "loglevel=info", 0, 0, G_OPTION_ARG_NONE, &log_info, N_(
 					"log severity: info level and up"), NULL },
 			{ "loglevel=debug", 0, 0, G_OPTION_ARG_NONE, &log_debug, N_(
 					"log severity: debug level and up: Max logging"), NULL },
 			{ "test-mode", 0, 0, G_OPTION_ARG_NONE, &test_mode, N_(
 					"Test Mode only: Allow non root user"), NULL },
+			{ "adaptive", 0, 0, G_OPTION_ARG_NONE, &adaptive, N_(
+					"adaptive mode: use adaptive performance tables if available"), NULL },
 			{ "poll-interval", 0, 0, G_OPTION_ARG_INT, &poll_interval,
 					N_("Poll interval in seconds: Poll for zone temperature changes. "
 						"If want to disable polling set to zero."), NULL },
@@ -213,6 +224,9 @@ int main(int argc, char *argv[]) {
 			{ "disable-active-power", 0, 0, G_OPTION_ARG_NONE,
 						&disable_active_power, N_(
 						"Disable active power settings to reduce thermal impact"), NULL },
+			{ "ignore-critical-trip", 0, 0, G_OPTION_ARG_NONE,
+						&ignore_critical, N_(
+						"Ignore critical trips for reboot"), NULL },
 			{ NULL, 0, 0,
 					G_OPTION_ARG_NONE, NULL, NULL, NULL } };
 
@@ -265,11 +279,10 @@ int main(int argc, char *argv[]) {
 	g_mkdir_with_parents(TDCONFDIR, 0755); // Don't care return value as directory
 	// may already exist
 	if (log_info) {
-		thd_log_level |= G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_INFO;
+		thd_log_level |= G_LOG_LEVEL_INFO;
 	}
 	if (log_debug) {
-		thd_log_level |= G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_INFO
-				| G_LOG_LEVEL_DEBUG;
+		thd_log_level |= G_LOG_LEVEL_INFO | G_LOG_LEVEL_DEBUG;
 	}
 	if (poll_interval >= 0) {
 		fprintf(stdout, "Polling enabled: %d\n", poll_interval);
@@ -281,7 +294,8 @@ int main(int argc, char *argv[]) {
 	openlog("thermald", LOG_PID, LOG_USER | LOG_DAEMON | LOG_SYSLOG);
 	// Don't care return val
 	//setlogmask(LOG_CRIT | LOG_ERR | LOG_WARNING | LOG_NOTICE | LOG_DEBUG | LOG_INFO);
-	thd_daemonize = !no_daemon;
+	thd_daemonize = !no_daemon && !systemd;
+	use_syslog = !no_daemon || systemd;
 	g_log_set_handler(NULL, G_LOG_LEVEL_MASK, thd_logger, NULL);
 
 	if (check_thermald_running()) {
@@ -290,7 +304,7 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (no_daemon) {
+	if (!thd_daemonize) {
 		signal(SIGINT, sig_int_handler);
 		signal(SIGTERM, sig_int_handler);
 	}
@@ -309,7 +323,7 @@ int main(int argc, char *argv[]) {
 	if (dbus_enable)
 		thd_dbus_server_init(sig_int_handler);
 
-	if (!no_daemon) {
+	if (thd_daemonize) {
 		printf("Ready to serve requests: Daemonizing.. %d\n", thd_daemonize);
 		thd_log_info(
 				"thermald ver %s: Ready to serve requests: Daemonizing..\n",
@@ -322,8 +336,19 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (thd_engine_create_default_engine((bool) ignore_cpuid_check,
-			(bool) exclusive_control, conf_file) != THD_SUCCESS) {
+	if (adaptive) {
+		ret = thd_engine_create_adaptive_engine((bool) ignore_cpuid_check);
+		if (ret != THD_SUCCESS) {
+			thd_log_info("--adaptive option failed on this platform\n");
+			thd_log_info("Ignoring --adaptive option\n");
+			ret = thd_engine_create_default_engine((bool) ignore_cpuid_check,
+						       (bool) exclusive_control, conf_file);
+		}
+	} else {
+		ret = thd_engine_create_default_engine((bool) ignore_cpuid_check,
+					       (bool) exclusive_control, conf_file);
+	}
+	if (ret != THD_SUCCESS) {
 		clean_up_lockfile();
 		closelog();
 		exit(EXIT_FAILURE);
