@@ -46,15 +46,14 @@
 
 static void *cthd_engine_thread(void *arg);
 
-cthd_engine::cthd_engine() :
+cthd_engine::cthd_engine(std::string _uuid) :
 		current_cdev_index(0), current_zone_index(0), current_sensor_index(0), parse_thermal_zone_success(
-				false), parse_thermal_cdev_success(false), poll_timeout_msec(
+				false), parse_thermal_cdev_success(false), uuid(_uuid), parser_disabled(false), poll_timeout_msec(
 				-1), wakeup_fd(-1), uevent_fd(-1), control_mode(COMPLEMENTRY), write_pipe_fd(
 				0), preference(0), status(true), thz_last_uevent_time(0), thz_last_temp_ind_time(
-				0), terminate(false), genuine_intel(0), has_invariant_tsc(0), has_aperf(
+				0), thz_last_update_event_time(0), terminate(false), genuine_intel(0), has_invariant_tsc(0), has_aperf(
 				0), proc_list_matched(false), poll_interval_sec(0), poll_sensor_mask(
-				0), fast_poll_sensor_mask(0), saved_poll_interval(0), poll_fd_cnt(
-				0), rt_kernel(false), parser_init_done(false) {
+				0), fast_poll_sensor_mask(0), saved_poll_interval(0), poll_fd_cnt(0), rt_kernel(false), parser_init_done(false) {
 	thd_engine = pthread_t();
 	thd_attr = pthread_attr_t();
 
@@ -107,7 +106,7 @@ void cthd_engine::thd_engine_thread() {
 
 		if (n == 0 || (tm - thz_last_temp_ind_time) >= poll_timeout_sec) {
 			if (!status) {
-				thd_log_warn("Thermal Daemon is disabled \n");
+				thd_log_msg("Thermal Daemon is disabled \n");
 				continue;
 			}
 			pthread_mutex_lock(&thd_engine_mutex);
@@ -119,7 +118,7 @@ void cthd_engine::thd_engine_thread() {
 			pthread_mutex_unlock(&thd_engine_mutex);
 			thz_last_temp_ind_time = tm;
 		}
-		if (uevent_fd >= 0 && poll_fds[uevent_fd].revents & POLLIN) {
+		if (uevent_fd >= 0 && (poll_fds[uevent_fd].revents & POLLIN)) {
 			// Kobj uevent
 			if (kobj_uevent.check_for_event()) {
 				time_t tm;
@@ -140,7 +139,7 @@ void cthd_engine::thd_engine_thread() {
 				thz_last_uevent_time = tm;
 			}
 		}
-		if (wakeup_fd >= 0 && poll_fds[wakeup_fd].revents & POLLIN) {
+		if (wakeup_fd >= 0 && (poll_fds[wakeup_fd].revents & POLLIN)) {
 			message_capsul_t msg;
 
 			thd_log_debug("wakeup fd event\n");
@@ -155,6 +154,14 @@ void cthd_engine::thd_engine_thread() {
 				thd_log_debug("Terminating thread..\n");
 			}
 		}
+
+		if ((tm - thz_last_update_event_time) >= thd_poll_interval) {
+			pthread_mutex_lock(&thd_engine_mutex);
+			update_engine_state();
+			pthread_mutex_unlock(&thd_engine_mutex);
+			thz_last_update_event_time = tm;
+		}
+
 		workarounds();
 	}
 	thd_log_debug("thd_engine_thread_end\n");
@@ -176,9 +183,9 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 
 		if (!proc_list_matched) {
 			if ((parser_init() == THD_SUCCESS) && parser.platform_matched()) {
-				thd_log_warn("Unsupported cpu model, using thermal-conf.xml only \n");
+				thd_log_msg("Unsupported cpu model, using thermal-conf.xml only \n");
 			} else {
-				thd_log_warn("Unsupported cpu model, use thermal-conf.xml file or run with --ignore-cpuid-check \n");
+				thd_log_msg("Unsupported cpu model, use thermal-conf.xml file or run with --ignore-cpuid-check \n");
 				return THD_FATAL_ERROR;
 			}
 		}
@@ -212,7 +219,7 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 
 	poll_timeout_msec = -1;
 	if (poll_interval_sec) {
-		thd_log_warn("Polling mode is enabled: %d\n", poll_interval_sec);
+		thd_log_msg("Polling mode is enabled: %d\n", poll_interval_sec);
 		poll_timeout_msec = poll_interval_sec * 1000;
 	}
 
@@ -256,14 +263,14 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 			if (!zone->zone_active_status())
 				continue;
 			if (!zone->check_sensor_async_status()) {
-				thd_log_warn(
-						"Polling will be enabled as some sensors are not capable to notify asynchnously \n");
+				thd_log_msg(
+						"Polling will be enabled as some sensors are not capable to notify asynchronously\n");
 				poll_timeout_msec = def_poll_interval;
 				break;
 			}
 		}
 		if (i == zones.size()) {
-			thd_log_info("Proceed without polling mode! \n");
+			thd_log_info("Proceed without polling mode!\n");
 		}
 
 		uevent_fd = poll_fd_cnt;
@@ -360,7 +367,7 @@ void cthd_engine::process_pref_change() {
 	}
 	status = true;
 	if (preference != new_pref) {
-		thd_log_warn("Preference changed \n");
+		thd_log_msg("Preference changed \n");
 	}
 	preference = new_pref;
 	for (unsigned int i = 0; i < zones.size(); ++i) {
@@ -480,7 +487,7 @@ int cthd_engine::proc_message(message_capsul_t *msg) {
 	case WAKEUP:
 		break;
 	case TERMINATE:
-		thd_log_warn("Terminating ...\n");
+		thd_log_msg("Terminating ...\n");
 
 		ret = -1;
 		terminate = true;
@@ -490,7 +497,7 @@ int cthd_engine::proc_message(message_capsul_t *msg) {
 		break;
 	case THERMAL_ZONE_NOTIFY:
 		if (!status) {
-			thd_log_warn("Thermal Daemon is disabled \n");
+			thd_log_msg("Thermal Daemon is disabled \n");
 			break;
 		}
 		thermal_zone_change(msg);
@@ -535,7 +542,7 @@ void cthd_engine::takeover_thermal_control() {
 	DIR *dir;
 	struct dirent *entry;
 	const std::string base_path = "/sys/class/thermal/";
-	cthd_INT3400 int3400;
+	cthd_INT3400 int3400(uuid);
 
 	thd_log_info("Taking over thermal control \n");
 
@@ -550,6 +557,9 @@ void cthd_engine::takeover_thermal_control() {
 				i = atoi(entry->d_name + strlen("thermal_zone"));
 				std::stringstream policy;
 				std::string curr_policy;
+				std::stringstream type;
+				std::string thermal_type;
+				std::stringstream mode;
 
 				policy << "thermal_zone" << i << "/policy";
 				if (sysfs.exists(policy.str().c_str())) {
@@ -559,6 +569,15 @@ void cthd_engine::takeover_thermal_control() {
 					if (ret >= 0) {
 						zone_preferences.push_back(curr_policy);
 						sysfs.write(policy.str(), "user_space");
+					}
+				}
+				type << "thermal_zone" << i << "/type";
+				if (sysfs.exists(type.str().c_str())) {
+					sysfs.read(type.str(), thermal_type);
+					thd_log_info("Thermal zone of type %s\n", thermal_type.c_str());
+					if (thermal_type == "INT3400") {
+						mode << "thermal_zone" << i << "/mode";
+						sysfs.write(mode.str(), "enabled");
 					}
 				}
 			}
@@ -590,10 +609,21 @@ void cthd_engine::giveup_thermal_control() {
 
 				i = atoi(entry->d_name + strlen("thermal_zone"));
 				std::stringstream policy;
+				std::stringstream type;
+				std::string thermal_type;
+				std::stringstream mode;
 
 				policy << "thermal_zone" << i << "/policy";
 				if (sysfs.exists(policy.str().c_str())) {
 					sysfs.write(policy.str(), zone_preferences[cnt++]);
+				}
+				type << "thermal_zone" << i << "/type";
+				if (sysfs.exists(type.str().c_str())) {
+					sysfs.read(type.str(), thermal_type);
+					if (thermal_type == "INT3400") {
+						mode << "thermal_zone" << i << "/mode";
+						sysfs.write(mode.str(), "disabled");
+					}
 				}
 			}
 		}
@@ -602,7 +632,7 @@ void cthd_engine::giveup_thermal_control() {
 }
 
 void cthd_engine::process_terminate() {
-	thd_log_warn("terminating on user request ..\n");
+	thd_log_msg("terminating on user request ..\n");
 	giveup_thermal_control();
 }
 
@@ -627,7 +657,7 @@ void cthd_engine::thd_engine_fast_poll_disable(int sensor_id) {
 }
 
 void cthd_engine::thd_engine_reload_zones() {
-	thd_log_warn(" Reloading zones\n");
+	thd_log_msg(" Reloading zones\n");
 	for (unsigned int i = 0; i < zones.size(); ++i) {
 		cthd_zone *zone = zones[i];
 		delete zone;
@@ -666,6 +696,10 @@ static supported_ids_t id_table[] = {
 		{ 6, 0x8d }, // Tigerlake
 		{ 0, 0 } // Last Invalid entry
 };
+
+std::vector<std::string> blocklist_paths {
+	"/devices/platform/thinkpad_acpi/dytc_lapmode",
+};
 #endif
 
 int cthd_engine::check_cpu_id() {
@@ -694,7 +728,7 @@ int cthd_engine::check_cpu_id() {
 	if (family == 6 || family == 0xf)
 		model += ((fms >> 16) & 0xf) << 4;
 
-	thd_log_warn(
+	thd_log_msg(
 			"%u CPUID levels; family:model:stepping 0x%x:%x:%x (%u:%u:%u)\n",
 			max_level, family, model, stepping, family, model, stepping);
 
@@ -707,7 +741,18 @@ int cthd_engine::check_cpu_id() {
 		i++;
 	}
 	if (!valid) {
-		thd_log_warn(" Need Linux PowerCap sysfs \n");
+		thd_log_msg(" Need Linux PowerCap sysfs \n");
+	}
+
+
+	for (std::string path : blocklist_paths) {
+		struct stat s;
+
+		if (!stat(path.c_str(), &s)) {
+			proc_list_matched = false;
+			thd_log_warn("[%s] present: Thermald can't run on this platform\n", path.c_str());
+			break;
+		}
 	}
 
 #endif
@@ -820,6 +865,10 @@ void cthd_engine::thd_read_default_cooling_devices() {
 
 	thd_log_info("thd_read_default_cooling devices loaded %zu cdevs \n",
 			cdevs.size());
+}
+
+ppcc_t* cthd_engine::get_ppcc_param(std::string name) {
+	return parser.get_ppcc_param(name);
 }
 
 cthd_zone* cthd_engine::search_zone(std::string name) {
@@ -1193,6 +1242,8 @@ int cthd_engine::user_add_cdev(std::string cdev_name, std::string cdev_path,
 }
 
 int cthd_engine::parser_init() {
+	if (parser_disabled)
+		return THD_ERROR;
 	if (parser_init_done)
 		return THD_SUCCESS;
 	if (parser.parser_init(get_config_file()) == THD_SUCCESS) {

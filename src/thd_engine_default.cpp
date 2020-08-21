@@ -44,6 +44,8 @@
 #include "thd_zone_kbl_g_mcp.h"
 #include "thd_cdev_kbl_amdgpu.h"
 #include "thd_zone_kbl_g_mcp.h"
+#include "thd_sensor_rapl_power.h"
+#include "thd_zone_rapl_power.h"
 
 #ifdef GLIB_SUPPORT
 #include "thd_cdev_modem.h"
@@ -75,6 +77,17 @@ static cooling_dev_t cpu_def_cooling_devices[] = {
 				0.0, 0.0 },"" } };
 
 cthd_engine_default::~cthd_engine_default() {
+}
+
+int cthd_engine_default::debug_mode_on(void) {
+	static const char *debug_mode = TDRUNDIR
+	"/debug_mode";
+	struct stat s;
+
+	if (stat(debug_mode, &s))
+		return 0;
+
+	return 1;
 }
 
 int cthd_engine_default::read_thermal_sensors() {
@@ -196,6 +209,17 @@ int cthd_engine_default::read_thermal_sensors() {
 		delete mcp_power;
 	}
 
+	if (debug_mode_on()) {
+		// Only used for debug power using ThermalMonitor
+		cthd_sensor_rapl_power *rapl_power = new cthd_sensor_rapl_power(index);
+		if (rapl_power->sensor_update() == THD_SUCCESS) {
+			sensors.push_back(rapl_power);
+			++index;
+		} else {
+			delete rapl_power;
+		}
+	}
+
 	current_sensor_index = index;
 	// Add from XML sensor config
 	if (!parser_init() && parser.platform_matched()) {
@@ -255,7 +279,7 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 
 	/* Specialized processor thermal device names */
 	cthd_zone *processor_thermal = NULL, *acpi_thermal = NULL;
-	cthd_INT3400 int3400;
+	cthd_INT3400 int3400(uuid);
 	unsigned int passive, new_passive = 0, critical = 0;
 
 	if (int3400.match_supported_uuid() == THD_SUCCESS) {
@@ -557,6 +581,19 @@ int cthd_engine_default::read_thermal_zones() {
 	}
 	current_zone_index = index;
 
+	if (debug_mode_on()) {
+		// Only used for debug power using ThermalMonitor
+		cthd_zone_rapl_power *rapl_power = new cthd_zone_rapl_power(index);
+		if (rapl_power->zone_update() == THD_SUCCESS) {
+			rapl_power->set_zone_active();
+			zones.push_back(rapl_power);
+			++index;
+		} else {
+			delete rapl_power;
+		}
+		current_zone_index = index;
+	}
+
 	if (!zones.size()) {
 		thd_log_info("No Thermal Zones found \n");
 		return THD_FATAL_ERROR;
@@ -675,10 +712,11 @@ int cthd_engine_default::read_cooling_devices() {
 		++current_cdev_index;
 	} else {
 		delete rapl_dev;
+		rapl_dev = NULL;
 	}
 
 	// Add RAPL mmio cooling device
-	if (!disable_active_power && parser.thermal_matched_platform_index() >= 0) {
+	if (!disable_active_power && (parser.thermal_matched_platform_index() >= 0 || force_mmio_rapl)) {
 		cthd_sysfs_cdev_rapl *rapl_mmio_dev =
 				new cthd_sysfs_cdev_rapl(
 						current_cdev_index, 0,
@@ -687,6 +725,11 @@ int cthd_engine_default::read_cooling_devices() {
 		if (rapl_mmio_dev->update() == THD_SUCCESS) {
 			cdevs.push_back(rapl_mmio_dev);
 			++current_cdev_index;
+
+			// Prefer MMIO access over MSR access for B0D4
+			if (rapl_dev)
+				rapl_dev->set_cdev_alias("");
+			rapl_mmio_dev->set_cdev_alias("B0D4");
 		} else {
 			delete rapl_mmio_dev;
 		}
@@ -706,16 +749,6 @@ int cthd_engine_default::read_cooling_devices() {
 	size = sizeof(cpu_def_cooling_devices) / sizeof(cooling_dev_t);
 	for (i = 0; i < size; ++i) {
 		add_replace_cdev(&cpu_def_cooling_devices[i]);
-	}
-
-	// Add from XML cooling device config
-	if (!parser_init() && parser.platform_matched()) {
-		for (int i = 0; i < parser.cdev_count(); ++i) {
-			cooling_dev_t *cdev_config = parser.get_cool_dev_index(i);
-			if (!cdev_config)
-				continue;
-			add_replace_cdev(cdev_config);
-		}
 	}
 
 	cthd_cdev_cpufreq *cpu_freq_dev = new cthd_cdev_cpufreq(current_cdev_index,
@@ -758,6 +791,16 @@ int cthd_engine_default::read_cooling_devices() {
 			++current_cdev_index;
 		} else
 			delete cdev_amdgpu;
+	}
+
+	// Add from XML cooling device config
+	if (!parser_init() && parser.platform_matched()) {
+		for (int i = 0; i < parser.cdev_count(); ++i) {
+			cooling_dev_t *cdev_config = parser.get_cool_dev_index(i);
+			if (!cdev_config)
+				continue;
+			add_replace_cdev(cdev_config);
+		}
 	}
 
 	// Dump all cooling devices

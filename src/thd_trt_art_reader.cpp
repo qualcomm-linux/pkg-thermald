@@ -148,7 +148,7 @@ int cthd_acpi_rel::generate_conf(std::string file_name) {
 	string prefix;
 	int art_status;
 	int ret = 0;
-	cthd_INT3400 int3400;
+	cthd_INT3400 int3400("42A441D6-AE6A-462b-A84B-4A8CE79027D3");
 
 	std::ifstream conf_file_check(file_name.c_str());
 	if (conf_file_check.is_open()) {
@@ -167,7 +167,7 @@ int cthd_acpi_rel::generate_conf(std::string file_name) {
 	}
 
 	if (int3400.match_supported_uuid() != THD_SUCCESS) {
-		thd_log_info("Passive 1 UUID is not present, hence ignore _TRT, as it may have junk!!");
+		thd_log_info("Passive 1 UUID is not present, hence ignore _TRT, as it may have junk!!\n");
 		ret = -1;
 		goto cleanup;
 	}
