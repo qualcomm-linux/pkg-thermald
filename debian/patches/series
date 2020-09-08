@@ -1,3 +1,7 @@
 0002-Don-t-keep-on-reading-a-sensor-if-the-temperature-is.patch
 0003-thermald-fix-uninitialised-member.patch
 0004-Remove-processing-when-trip-was-not-activates.patch
+0005-adaptive-Fix-64bit-printing-on-non-64bit-machines.patch
+0006-Replace-thd_log_fatal-with-thd_log_warn.patch
+0007-Continue-for-PSVT-version-2.patch
+0008-Fix-path-for-Lenovo-kill-switch-heuristic.patch

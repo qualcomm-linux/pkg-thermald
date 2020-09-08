@@ -1,0 +1,28 @@
+From 32dc5502245b767d0c799ae941055928fccd4f3a Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Fri, 28 Aug 2020 12:45:09 -0700
+Subject: [PATCH] Continue for PSVT version != 2
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Error out only when version is > 2.
+---
+ src/thd_engine_adaptive.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thd_engine_adaptive.cpp b/src/thd_engine_adaptive.cpp
+index 779ab02..5031063 100644
+--- a/src/thd_engine_adaptive.cpp
++++ b/src/thd_engine_adaptive.cpp
+@@ -478,7 +478,7 @@ int cthd_engine_adaptive::parse_psvt(char *name, char *buf, int len) {
+ 	int version = get_uint64(buf, &offset);
+ 	struct psvt psvt;
+ 
+-	if (version != 2) {
++	if (version > 2) {
+ 		thd_log_warn("Found unsupported PSVT version %d\n", (int) version);
+ 		throw gddv_exception;
+ 	}
+-- 
+2.27.0
+

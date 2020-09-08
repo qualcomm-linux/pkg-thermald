@@ -1,0 +1,33 @@
+From 8c283e472fa3947ec66e3560599cdce378ce62a1 Mon Sep 17 00:00:00 2001
+From: Benjamin Berg <bberg@redhat.com>
+Date: Tue, 1 Sep 2020 14:09:47 +0200
+Subject: [PATCH] Fix path for Lenovo kill-switch heuristic
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+The path was missing the /sys prefix, rendering the test useless. Add
+the appropriate prefix and also a comment explaining why we do this.
+---
+ src/thd_engine.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/thd_engine.cpp b/src/thd_engine.cpp
+index ee4ed57..4f86549 100644
+--- a/src/thd_engine.cpp
++++ b/src/thd_engine.cpp
+@@ -698,7 +698,11 @@ static supported_ids_t id_table[] = {
+ };
+ 
+ std::vector<std::string> blocklist_paths {
+-	"/devices/platform/thinkpad_acpi/dytc_lapmode",
++	/* Some Lenovo machines have in-firmware thermal management,
++	 * avoid having two entities trying to manage things.
++	 * We may want to change this to dytc_perfmode once that is
++	 * widely available. */
++	"/sys/devices/platform/thinkpad_acpi/dytc_lapmode",
+ };
+ #endif
+ 
+-- 
+2.27.0
+

@@ -1,3 +1,23 @@
+thermald (2.3-2) unstable; urgency=medium
+
+  * Pull in latest upstream bug fixes to 2.3, patches 0005-0008*
+   [Benjamin Berg]
+    - 0710804c2c27 adaptive: Fix 64bit printing on non-64bit machines
+      Fixes FTBFS on 32 bit systems
+    - 8c283e472fa3 Fix path for Lenovo kill-switch heuristic
+      The path was missing the /sys prefix, rendering the test useless.
+      Add the appropriate prefix and also a comment explaining why we
+      do this.
+   [Srinivas Pandruvada]
+    - d14d4b69a4e8 Replace thd_log_fatal with thd_log_warn
+      Since --adaptive by default when parsing fails to revert to non
+      adaptive. But thd_log_fatal will cause it to exit. Instead display
+      warning and catch error and continue with non adaptive
+    - 32dc5502245b Continue for PSVT version != 2
+      Error out only when version is > 2.
+
+ -- Colin King <colin.king@canonical.com>  Tue, 8 Sep 2020 09:55:27 +0100
+
 thermald (2.3-1) unstable; urgency=medium
 
   * sync with latest upstream release 2.3
