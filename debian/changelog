@@ -1,3 +1,11 @@
+thermald (2.3-3) unstable; urgency=medium
+
+  * Add Cometlake and Rocketlake CPU models (LP: #1896419)
+    [Srinivas Pandruvada]
+    - 7f2003ee911d Added Cometlake and Rocketlake CPU models
+
+ -- Colin King <colin.king@canonical.com>  Mon, 21 Sep 2020 16:04:11 +0100
+
 thermald (2.3-2) unstable; urgency=medium
 
   * Pull in latest upstream bug fixes to 2.3, patches 0005-0008*

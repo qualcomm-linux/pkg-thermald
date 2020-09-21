@@ -5,3 +5,4 @@
 0006-Replace-thd_log_fatal-with-thd_log_warn.patch
 0007-Continue-for-PSVT-version-2.patch
 0008-Fix-path-for-Lenovo-kill-switch-heuristic.patch
+0009-Added-Cometlake-and-Rocketlake-CPU-models.patch
