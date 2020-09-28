@@ -1,3 +1,10 @@
+thermald (2.3-4) unstable; urgency=medium
+
+  * Fix Homepage field in debian/control (Closes: #971246)
+    - use https://01.org/linux-thermal-daemon
+
+ -- Colin King <colin.king@canonical.com>  Mon, 28 Sep 2020 09:55:23 +0100
+
 thermald (2.3-3) unstable; urgency=medium
 
   * Add Cometlake and Rocketlake CPU models (LP: #1896419)
