@@ -1,0 +1,69 @@
+From 0a3f43e45652cd3919f7c60322da0bf5b2e1c729 Mon Sep 17 00:00:00 2001
+From: Benjamin Berg <bberg@redhat.com>
+Date: Thu, 10 Sep 2020 19:07:48 +0200
+Subject: [PATCH] adaptive: Implement dummy power-slider condition
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Simply default to 75 which should be "Better Performance", which should
+generally correspond to the default value.
+---
+ src/thd_engine_adaptive.cpp | 15 +++++++++++++++
+ src/thd_engine_adaptive.h   |  1 +
+ 2 files changed, 16 insertions(+)
+
+diff --git a/src/thd_engine_adaptive.cpp b/src/thd_engine_adaptive.cpp
+index f70fe16..574aee6 100644
+--- a/src/thd_engine_adaptive.cpp
++++ b/src/thd_engine_adaptive.cpp
+@@ -811,6 +811,8 @@ int cthd_engine_adaptive::verify_condition(struct condition condition) {
+ 		return 0;
+ 	if (condition.condition == Platform_type)
+ 		return 0;
++	if (condition.condition == Power_slider)
++		return 0;
+ 
+ 	cond_name = condition_names[MIN(MAX(0, condition.condition), G_N_ELEMENTS(condition_names) - 1)];
+ 	thd_log_error("Unsupported condition %d (%s)\n", condition.condition, cond_name);
+@@ -988,6 +990,15 @@ int cthd_engine_adaptive::evaluate_platform_type_condition(
+ 	return compare_condition(condition, value);
+ }
+ 
++int cthd_engine_adaptive::evaluate_power_slider_condition(
++		struct condition condition) {
++
++	// We don't have a power slider currently, just set it to 75 which
++	// equals "Better Performance" (using 100 would be more aggressive).
++
++	return compare_condition(condition, 75);
++}
++
+ int cthd_engine_adaptive::evaluate_ac_condition(struct condition condition) {
+ 	int value = 0;
+ 	bool on_battery = up_client_get_on_battery(upower_client);
+@@ -1033,6 +1044,10 @@ int cthd_engine_adaptive::evaluate_condition(struct condition condition) {
+ 		ret = evaluate_platform_type_condition(condition);
+ 	}
+ 
++	if (condition.condition == Power_slider) {
++		ret = evaluate_power_slider_condition(condition);
++	}
++
+ 	if (ret) {
+ 		if (condition.time && condition.state_entry_time == 0) {
+ 			condition.state_entry_time = time(NULL);
+diff --git a/src/thd_engine_adaptive.h b/src/thd_engine_adaptive.h
+index 10590c3..e634c1d 100644
+--- a/src/thd_engine_adaptive.h
++++ b/src/thd_engine_adaptive.h
+@@ -185,6 +185,7 @@ protected:
+ 	int evaluate_lid_condition(struct condition condition);
+ 	int evaluate_workload_condition(struct condition condition);
+ 	int evaluate_platform_type_condition(struct condition condition);
++	int evaluate_power_slider_condition(struct condition condition);
+ 	int evaluate_condition(struct condition condition);
+ 	int evaluate_condition_set(std::vector<struct condition> condition_set);
+ 	int evaluate_conditions();
+-- 
+2.27.0
+

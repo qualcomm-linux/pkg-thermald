@@ -1,3 +1,22 @@
+thermald (2.3-5) unstable; urgency=medium
+
+  * Pull in latest upstream fixes:
+    [Benjamin Berg]
+    - 0009-adaptive-Improve-logging-of-high-order-Oem-condition.patch
+    - 0010-adaptive-Move-merging-dumping-out-of-gddv-parsing.patch
+    - 0011-adaptive-Properly-parse-data-vault-objects-recursive.patch
+    - 0012-adaptive-Log-name-of-unknown-condition-if-known.patch
+    - 0013-adaptive-Use-Oem0-constant-instead-of-19-which-is-le.patch
+    - 0014-adaptive-Implement-dummy-power-slider-condition.patch
+    - 0016-engine-Throw-different-errors-for-startup-issues.patch
+    - 0017-Use-special-exit-code-of-2-for-unsupported-platforms.patch
+    - 0018-data-Restart-systemd-service-on-failure.patch
+    [Srinivas Pandruvada]
+    - 0015-Added-Cometlake-and-Rocketlake-CPU-models.patch
+    - 0019-Allow-base-path-change-for-INT3400.patch
+
+ -- Colin King <colin.king@canonical.com>  Wed, 28 Oct 2020 17:16:34 +0000
+
 thermald (2.3-4) unstable; urgency=medium
 
   * Fix Homepage field in debian/control (Closes: #971246)

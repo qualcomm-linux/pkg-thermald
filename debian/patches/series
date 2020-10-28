@@ -5,4 +5,13 @@
 0006-Replace-thd_log_fatal-with-thd_log_warn.patch
 0007-Continue-for-PSVT-version-2.patch
 0008-Fix-path-for-Lenovo-kill-switch-heuristic.patch
-0009-Added-Cometlake-and-Rocketlake-CPU-models.patch
+0009-adaptive-Improve-logging-of-high-order-Oem-condition.patch
+0010-adaptive-Move-merging-dumping-out-of-gddv-parsing.patch
+0011-adaptive-Properly-parse-data-vault-objects-recursive.patch
+0012-adaptive-Log-name-of-unknown-condition-if-known.patch
+0013-adaptive-Use-Oem0-constant-instead-of-19-which-is-le.patch
+0014-adaptive-Implement-dummy-power-slider-condition.patch
+0015-Added-Cometlake-and-Rocketlake-CPU-models.patch
+0017-Use-special-exit-code-of-2-for-unsupported-platforms.patch
+0018-data-Restart-systemd-service-on-failure.patch
+0019-Allow-base-path-change-for-INT3400.patch
