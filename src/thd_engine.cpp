@@ -186,7 +186,7 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check) {
 				thd_log_msg("Unsupported cpu model, using thermal-conf.xml only \n");
 			} else {
 				thd_log_msg("Unsupported cpu model, use thermal-conf.xml file or run with --ignore-cpuid-check \n");
-				return THD_FATAL_ERROR;
+				return THD_ERROR;
 			}
 		}
 	}
@@ -694,11 +694,18 @@ static supported_ids_t id_table[] = {
 		{ 6, 0x7e }, // Icelake
 		{ 6, 0x8c }, // Tigerlake_L
 		{ 6, 0x8d }, // Tigerlake
+		{ 6, 0xa5 }, // Cometlake
+		{ 6, 0xa6 }, // Cometlake_L
+		{ 6, 0xa7 }, // Rocketlake
 		{ 0, 0 } // Last Invalid entry
 };
 
 std::vector<std::string> blocklist_paths {
-	"/devices/platform/thinkpad_acpi/dytc_lapmode",
+	/* Some Lenovo machines have in-firmware thermal management,
+	 * avoid having two entities trying to manage things.
+	 * We may want to change this to dytc_perfmode once that is
+	 * widely available. */
+	"/sys/devices/platform/thinkpad_acpi/dytc_lapmode",
 };
 #endif
 
