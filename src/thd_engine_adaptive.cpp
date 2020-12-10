@@ -25,6 +25,7 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <lzma.h>
 #include <linux/input.h>
 #include <sys/types.h>
@@ -52,12 +53,40 @@
 #include "thd_cdev_modem.h"
 #endif
 
+/* From esif_lilb_datavault.h */
+#define ESIFDV_NAME_LEN				32			// Max DataVault Name (Cache Name) Length (not including NUL)
+#define ESIFDV_DESC_LEN				64			// Max DataVault Description Length (not including NUL)
+
+#define SHA256_HASH_BYTES				32
+
 struct header {
 	uint16_t signature;
 	uint16_t headersize;
 	uint32_t version;
-	uint32_t flags;
+
+	union {
+		/* Added in V1 */
+		struct {
+			uint32_t flags;
+		} v1;
+
+		/* Added in V2 */
+		struct {
+			uint32_t flags;
+			char     segmentid[ESIFDV_NAME_LEN];
+			char     comment[ESIFDV_DESC_LEN];
+			uint8_t  payload_hash[SHA256_HASH_BYTES];
+			uint32_t payload_size;
+			uint32_t payload_class;
+		} v2;
+	};
 } __attribute__ ((packed));
+
+class _gddv_exception: public std::exception {
+	virtual const char* what() const throw () {
+		return "GDDV parsing failed";
+	}
+} gddv_exception;
 
 cthd_engine_adaptive::~cthd_engine_adaptive() {
 }
@@ -71,7 +100,8 @@ uint64_t cthd_engine_adaptive::get_uint64(char *object, int *offset) {
 	int type = *(uint32_t*) (object + *offset);
 
 	if (type != 4) {
-		thd_log_fatal("Found object of type %d, expecting 4\n", type);
+		thd_log_warn("Found object of type %d, expecting 4\n", type);
+		throw gddv_exception;
 	}
 	*offset += 4;
 
@@ -87,7 +117,8 @@ char* cthd_engine_adaptive::get_string(char *object, int *offset) {
 	char *value;
 
 	if (type != 8) {
-		thd_log_fatal("Found object of type %d, expecting 8\n", type);
+		thd_log_warn("Found object of type %d, expecting 8\n", type);
+		throw gddv_exception;
 	}
 	*offset += 4;
 
@@ -158,8 +189,10 @@ int cthd_engine_adaptive::parse_apat(char *apat, int len) {
 	int offset = 0;
 	uint64_t version = get_uint64(apat, &offset);
 
-	if (version != 2)
-		thd_log_fatal("Found unsupported APAT version %d\n", (int) version);
+	if (version != 2) {
+		thd_log_warn("Found unsupported APAT version %d\n", (int) version);
+		throw gddv_exception;
+	}
 
 	while (offset < len) {
 		struct adaptive_target target;
@@ -183,7 +216,7 @@ void cthd_engine_adaptive::dump_apat()
 	thd_log_info("..apat dump begin.. \n");
 	for (unsigned int i = 0; i < targets.size(); ++i) {
 		thd_log_info(
-				"target_id:%lu name:%s participant:%s domain:%d code:%s argument:%s\n",
+				"target_id:%" PRIu64 " name:%s participant:%s domain:%d code:%s argument:%s\n",
 				targets[i].target_id, targets[i].name.c_str(),
 				targets[i].participant.c_str(), (int)targets[i].domain,
 				targets[i].code.c_str(), targets[i].argument.c_str());
@@ -202,7 +235,8 @@ int cthd_engine_adaptive::parse_apct(char *apct, int len) {
 
 			uint64_t target = get_uint64(apct, &offset);
 			if (int(target) == -1) {
-				thd_log_fatal("Invalid APCT target\n");
+				thd_log_warn("Invalid APCT target\n");
+				throw gddv_exception;
 			}
 
 			for (i = 0; i < 10; i++) {
@@ -221,7 +255,8 @@ int cthd_engine_adaptive::parse_apct(char *apct, int len) {
 				condition.target = target;
 
 				if (offset >= len) {
-					thd_log_fatal("Read off end of buffer in APCT parsing\n");
+					thd_log_warn("Read off end of buffer in APCT parsing\n");
+					throw gddv_exception;
 				}
 
 				condition.condition = adaptive_condition(
@@ -251,7 +286,8 @@ int cthd_engine_adaptive::parse_apct(char *apct, int len) {
 
 			uint64_t target = get_uint64(apct, &offset);
 			if (int(target) == -1) {
-				thd_log_fatal("Invalid APCT target");
+				thd_log_warn("Invalid APCT target");
+				throw gddv_exception;
 			}
 
 			uint64_t count = get_uint64(apct, &offset);
@@ -271,7 +307,8 @@ int cthd_engine_adaptive::parse_apct(char *apct, int len) {
 				condition.target = target;
 
 				if (offset >= len) {
-					thd_log_fatal("Read off end of buffer in parsing APCT\n");
+					thd_log_warn("Read off end of buffer in parsing APCT\n");
+					throw gddv_exception;
 				}
 
 				condition.condition = adaptive_condition(
@@ -300,7 +337,8 @@ int cthd_engine_adaptive::parse_apct(char *apct, int len) {
 			conditions.push_back(condition_set);
 		}
 	} else {
-		thd_log_fatal("Unsupported APCT version %d\n", (int) version);
+		thd_log_warn("Unsupported APCT version %d\n", (int) version);
+		throw gddv_exception;
 	}
 	return 0;
 }
@@ -387,6 +425,11 @@ void cthd_engine_adaptive::dump_apct() {
 
 			if (condition_set[j].condition < ARRAY_SIZE(condition_names)) {
 				cond_name = condition_names[condition_set[j].condition];
+			} else if (condition_set[j].condition >= 0x1000 && condition_set[j].condition < 0x10000) {
+				std::stringstream msg;
+
+				msg << "Oem" << (condition_set[j].condition - 0x1000 + 6);
+				cond_name = msg.str();
 			} else {
 				std::stringstream msg;
 
@@ -440,6 +483,21 @@ int cthd_engine_adaptive::parse_ppcc(char *name, char *buf, int len) {
 	ppcc.step_size = *(uint64_t*) (buf + 76);
 	ppcc.valid = 1;
 
+	if (len < 156)
+		return 0;
+
+	thd_log_info("Processing ppcc limit 2, length %d\n", len);
+	int start = 76 + 12;
+	ppcc.power_limit_1_min = *(uint64_t*) (buf + start + 12);
+	ppcc.power_limit_1_max = *(uint64_t*) (buf + start + 24);
+	ppcc.time_wind_1_min = *(uint64_t*) (buf + start + 36);
+	ppcc.time_wind_1_max = *(uint64_t*) (buf + start + 48);
+	ppcc.step_1_size = *(uint64_t*) (buf + start + 60);
+
+	if (ppcc.power_limit_1_max && ppcc.power_limit_1_min && ppcc.time_wind_1_min
+			&& ppcc.time_wind_1_max && ppcc.step_1_size)
+		ppcc.limit_1_valid = 1;
+
 	ppccs.push_back(ppcc);
 
 	return 0;
@@ -450,10 +508,15 @@ void cthd_engine_adaptive::dump_ppcc()
 	thd_log_info("..ppcc dump begin.. \n");
 	for (unsigned int i = 0; i < ppccs.size(); ++i) {
 		thd_log_info(
-				"Name:%s power_limit_max:%d power_limit_min:%d step_size:%d time_win_max:%d time_win_min:%d\n",
+				"Name:%s Limit:0 power_limit_max:%d power_limit_min:%d step_size:%d time_win_max:%d time_win_min:%d\n",
 				ppccs[i].name.c_str(), ppccs[i].power_limit_max,
 				ppccs[i].power_limit_min, ppccs[i].step_size,
 				ppccs[i].time_wind_max, ppccs[i].time_wind_min);
+		thd_log_info(
+				"Name:%s Limit:1 power_limit_max:%d power_limit_min:%d step_size:%d time_win_max:%d time_win_min:%d\n",
+				ppccs[i].name.c_str(), ppccs[i].power_limit_1_max,
+				ppccs[i].power_limit_1_min, ppccs[i].step_1_size,
+				ppccs[i].time_wind_1_max, ppccs[i].time_wind_1_min);
 	}
 	thd_log_info("ppcc dump end\n");
 }
@@ -463,8 +526,10 @@ int cthd_engine_adaptive::parse_psvt(char *name, char *buf, int len) {
 	int version = get_uint64(buf, &offset);
 	struct psvt psvt;
 
-	if (version != 2)
-		thd_log_fatal("Found unsupported PSVT version %d\n", (int) version);
+	if (version > 2) {
+		thd_log_warn("Found unsupported PSVT version %d\n", (int) version);
+		throw gddv_exception;
+	}
 
 	if (name == NULL)
 		psvt.name = "Default";
@@ -522,31 +587,14 @@ void cthd_engine_adaptive::dump_psvt() {
 	thd_log_info("psvt dump end\n");
 }
 
-int cthd_engine_adaptive::handle_compressed_gddv(char *buf, int size) {
-	uint64_t output_size = *(uint64_t*) (buf + 5);
-	lzma_ret ret;
-	unsigned char *decompressed = (unsigned char*) malloc(output_size);
-	lzma_stream strm = LZMA_STREAM_INIT;
+struct psvt* cthd_engine_adaptive::find_def_psvt() {
+	for (unsigned int i = 0; i < psvts.size(); ++i) {
+		if (psvts[i].name == "IETM.D0") {
+			return &psvts[i];
+		}
+	}
 
-	if (!decompressed)
-		thd_log_fatal("Failed to allocate buffer for decompressed output\n");
-	ret = lzma_auto_decoder(&strm, 64 * 1024 * 1024, 0);
-	if (ret)
-		thd_log_fatal("Failed to initialize LZMA decoder: %d\n", ret);
-
-	strm.next_out = decompressed;
-	strm.avail_out = output_size;
-	strm.next_in = (const unsigned char*) (buf);
-	strm.avail_in = size;
-	ret = lzma_code(&strm, LZMA_FINISH);
-	lzma_end(&strm);
-	if (ret && ret != LZMA_STREAM_END)
-		thd_log_fatal("Failed to decompress GDDV data: %d\n", ret);
-
-	parse_gddv((char*) decompressed, output_size);
-	free(decompressed);
-
-	return THD_SUCCESS;
+	return NULL;
 }
 
 // From Common/esif_sdk_iface_esif.h:
@@ -560,7 +608,136 @@ int cthd_engine_adaptive::handle_compressed_gddv(char *buf, int size) {
 #define ESIFDV_HEADER_SIGNATURE			0x1FE5
 #define ESIFDV_ITEM_KEYS_REV0_SIGNATURE	0xA0D8
 
-int cthd_engine_adaptive::parse_gddv(char *buf, int size) {
+int cthd_engine_adaptive::handle_compressed_gddv(char *buf, int size) {
+	struct header *header = (struct header*) buf;
+	uint64_t payload_output_size;
+	uint64_t output_size;
+	lzma_ret ret;
+	int res;
+	unsigned char *decompressed;
+	lzma_stream strm = LZMA_STREAM_INIT;
+
+	payload_output_size = *(uint64_t*) (buf + header->headersize + 5);
+	output_size = header->headersize + payload_output_size;
+	decompressed = (unsigned char*) malloc(output_size);
+
+	if (!decompressed) {
+		thd_log_warn("Failed to allocate buffer for decompressed output\n");
+		throw gddv_exception;
+	}
+	ret = lzma_auto_decoder(&strm, 64 * 1024 * 1024, 0);
+	if (ret) {
+		thd_log_warn("Failed to initialize LZMA decoder: %d\n", ret);
+		free(decompressed);
+		throw gddv_exception;
+	}
+	strm.next_out = decompressed + header->headersize;
+	strm.avail_out = output_size;
+	strm.next_in = (const unsigned char*) (buf + header->headersize);
+	strm.avail_in = size;
+	ret = lzma_code(&strm, LZMA_FINISH);
+	lzma_end(&strm);
+	if (ret && ret != LZMA_STREAM_END) {
+		thd_log_warn("Failed to decompress GDDV data: %d\n", ret);
+		free(decompressed);
+		throw gddv_exception;
+	}
+
+	/* Copy and update header.
+	 * This will contain one or more nested repositories usually. */
+	memcpy (decompressed, buf, header->headersize);
+	header = (struct header*) decompressed;
+	header->v2.flags &= ~ESIF_SERVICE_CONFIG_COMPRESSED;
+	header->v2.payload_size = payload_output_size;
+
+	res = parse_gddv((char*) decompressed, output_size, NULL);
+	free(decompressed);
+
+	return res;
+}
+
+int cthd_engine_adaptive::parse_gddv_key(char *buf, int size, int *end_offset) {
+	int offset = 0;
+	uint32_t keyflags;
+	uint32_t keylength;
+	uint32_t valtype;
+	uint32_t vallength;
+	char *key;
+	char *val;
+	char *str;
+	char *name = NULL;
+	char *type = NULL;
+	char *point = NULL;
+	char *ns = NULL;
+
+	memcpy(&keyflags, buf + offset, sizeof(keyflags));
+	offset += sizeof(keyflags);
+	memcpy(&keylength, buf + offset, sizeof(keylength));
+	offset += sizeof(keylength);
+	key = new char[keylength];
+	memcpy(key, buf + offset, keylength);
+	offset += keylength;
+	memcpy(&valtype, buf + offset, sizeof(valtype));
+	offset += sizeof(valtype);
+	memcpy(&vallength, buf + offset, sizeof(vallength));
+	offset += sizeof(vallength);
+	val = new char[vallength];
+	memcpy(val, buf + offset, vallength);
+	offset += vallength;
+
+	if (end_offset)
+		*end_offset = offset;
+
+	str = strtok(key, "/");
+	if (!str) {
+		delete[] (key);
+		delete[] (val);
+
+		thd_log_debug("Ignoring key %s\n", key);
+		/* Ignore */
+		return THD_SUCCESS;
+	}
+	if (strcmp(str, "participants") == 0) {
+		name = strtok(NULL, "/");
+		type = strtok(NULL, "/");
+		point = strtok(NULL, "/");
+	} else if (strcmp(str, "shared") == 0) {
+		ns = strtok(NULL, "/");
+		type = strtok(NULL, "/");
+		if (strcmp(ns, "tables") == 0) {
+			point = strtok(NULL, "/");
+		}
+	}
+	if (name && type && strcmp(type, "ppcc") == 0) {
+		parse_ppcc(name, val, vallength);
+	}
+
+	if (type && strcmp(type, "psvt") == 0) {
+		if (point == NULL)
+			parse_psvt(name, val, vallength);
+		else
+			parse_psvt(point, val, vallength);
+	}
+
+	if (type && strcmp(type, "appc") == 0) {
+		parse_appc(val, vallength);
+	}
+
+	if (type && strcmp(type, "apct") == 0) {
+		parse_apct(val, vallength);
+	}
+
+	if (type && strcmp(type, "apat") == 0) {
+		parse_apat(val, vallength);
+	}
+
+	delete[] (key);
+	delete[] (val);
+
+	return THD_SUCCESS;
+}
+
+int cthd_engine_adaptive::parse_gddv(char *buf, int size, int *end_offset) {
 	int offset = 0;
 	struct header *header;
 
@@ -569,119 +746,82 @@ int cthd_engine_adaptive::parse_gddv(char *buf, int size) {
 
 	header = (struct header*) buf;
 
-	if (header->signature != ESIFDV_HEADER_SIGNATURE)
-		thd_log_fatal("Unexpected GDDV signature 0x%x\n", header->signature);
-
+	if (header->signature != ESIFDV_HEADER_SIGNATURE) {
+		thd_log_warn("Unexpected GDDV signature 0x%x\n", header->signature);
+		throw gddv_exception;
+	}
 	if (ESIFHDR_GET_MAJOR(header->version) != 1
 			&& ESIFHDR_GET_MAJOR(header->version) != 2)
 		return THD_ERROR;
 
 	offset = header->headersize;
 
-	thd_log_debug("header version[%d] size[%d] header_size[%d]\n",
-			ESIFHDR_GET_MAJOR(header->version), size, header->headersize);
+	thd_log_debug("header version[%d] size[%d] header_size[%d] flags[%08X]\n",
+			ESIFHDR_GET_MAJOR(header->version), size, header->headersize, header->v1.flags);
 
 	if (ESIFHDR_GET_MAJOR(header->version) == 2) {
-		if (header->flags == ESIF_SERVICE_CONFIG_COMPRESSED) {
+		char name[ESIFDV_NAME_LEN + 1] = { 0 };
+		char comment[ESIFDV_DESC_LEN + 1] = { 0 };
+
+		if (header->v2.flags == ESIF_SERVICE_CONFIG_COMPRESSED) {
 			thd_log_debug("Uncompress GDDV payload\n");
-			return handle_compressed_gddv(buf + offset, size - offset);
+			return handle_compressed_gddv(buf, size);
 		}
+
+		strncpy(name, header->v2.segmentid, sizeof(name) - 1);
+		strncpy(comment, header->v2.comment, sizeof(comment) - 1);
+
+		thd_log_debug("DV name: %s\n", name);
+		thd_log_debug("DV comment: %s\n", comment);
+
+		thd_log_debug("Got payload of size %d (data length: %d)\n", size, header->v2.payload_size);
+		size = header->v2.payload_size;
 	}
 
 	while ((offset + header->headersize) < size) {
-		uint32_t keyflags;
-		uint32_t keylength;
-		uint32_t valtype;
-		uint32_t vallength;
-		char *key;
-		char *val;
-		char *str;
-		char *name = NULL;
-		char *type = NULL;
-		char *point = NULL;
-		char *ns = NULL;
+		int res;
+		int end_offset = 0;
 
 		if (ESIFHDR_GET_MAJOR(header->version) == 2) {
 			unsigned short signature;
 
 			signature = *(unsigned short *) (buf + offset);
-			if (signature != ESIFDV_ITEM_KEYS_REV0_SIGNATURE) {
-				thd_log_info("REV0 key signature not found\n");
+			if (signature == ESIFDV_ITEM_KEYS_REV0_SIGNATURE) {
+				offset += sizeof(unsigned short);
+				res = parse_gddv_key(buf + offset, size - offset, &end_offset);
+				if (res != THD_SUCCESS)
+					return res;
+				offset += end_offset;
+			} else if (signature == ESIFDV_HEADER_SIGNATURE) {
+				thd_log_info("Got subobject in buf %p at %d\n", buf, offset);
+				res = parse_gddv(buf + offset, size - offset, &end_offset);
+				if (res != THD_SUCCESS)
+					return res;
+
+				/* Parse recursively */
+				offset += end_offset;
+				thd_log_info("Subobject ended at %d of %d\n", offset, size);
+			} else {
+				thd_log_info("No known signature found 0x%04X\n", *(unsigned short *) (buf + offset));
 				return THD_ERROR;
 			}
-			offset += sizeof(unsigned short);
+		} else {
+			res = parse_gddv_key(buf + offset, size - offset, &end_offset);
+			if (res != THD_SUCCESS)
+				return res;
+			offset += end_offset;
 		}
-
-		memcpy(&keyflags, buf + offset, sizeof(keyflags));
-		offset += sizeof(keyflags);
-		memcpy(&keylength, buf + offset, sizeof(keylength));
-		offset += sizeof(keylength);
-		key = new char[keylength];
-		memcpy(key, buf + offset, keylength);
-		offset += keylength;
-		memcpy(&valtype, buf + offset, sizeof(valtype));
-		offset += sizeof(valtype);
-		memcpy(&vallength, buf + offset, sizeof(vallength));
-		offset += sizeof(vallength);
-		val = new char[vallength];
-		memcpy(val, buf + offset, vallength);
-		offset += vallength;
-
-		str = strtok(key, "/");
-		if (!str) {
-			delete[] (key);
-			delete[] (val);
-			continue;
-		}
-		if (strcmp(str, "participants") == 0) {
-			name = strtok(NULL, "/");
-			type = strtok(NULL, "/");
-			point = strtok(NULL, "/");
-		} else if (strcmp(str, "shared") == 0) {
-			ns = strtok(NULL, "/");
-			type = strtok(NULL, "/");
-			if (strcmp(ns, "tables") == 0) {
-				point = strtok(NULL, "/");
-			}
-		}
-		if (name && type && strcmp(type, "ppcc") == 0) {
-			parse_ppcc(name, val, vallength);
-		}
-
-		if (type && strcmp(type, "psvt") == 0) {
-			if (point == NULL)
-				parse_psvt(name, val, vallength);
-			else
-				parse_psvt(point, val, vallength);
-		}
-
-		if (type && strcmp(type, "appc") == 0) {
-			parse_appc(val, vallength);
-		}
-
-		if (type && strcmp(type, "apct") == 0) {
-			parse_apct(val, vallength);
-		}
-
-		if (type && strcmp(type, "apat") == 0) {
-			parse_apat(val, vallength);
-		}
-
-		delete[] (key);
-		delete[] (val);
 	}
 
-	merge_appc();
-
-	dump_ppcc();
-	dump_psvt();
-	dump_apat();
-	dump_apct();
+	if (end_offset)
+		*end_offset = offset;
 
 	return 0;
 }
 
 int cthd_engine_adaptive::verify_condition(struct condition condition) {
+	const char *cond_name;
+
 	if (condition.condition >= Oem0 && condition.condition <= Oem5)
 		return 0;
 	if (condition.condition >= adaptive_condition(0x1000)
@@ -702,8 +842,11 @@ int cthd_engine_adaptive::verify_condition(struct condition condition) {
 		return 0;
 	if (condition.condition == Platform_type)
 		return 0;
+	if (condition.condition == Power_slider)
+		return 0;
 
-	thd_log_error("Unsupported condition %d\n", condition.condition);
+	cond_name = condition_names[MIN(MAX(0, condition.condition), G_N_ELEMENTS(condition_names) - 1)];
+	thd_log_error("Unsupported condition %d (%s)\n", condition.condition, cond_name);
 	return THD_ERROR;
 }
 
@@ -798,11 +941,11 @@ int cthd_engine_adaptive::compare_time(struct condition condition) {
 }
 
 int cthd_engine_adaptive::evaluate_oem_condition(struct condition condition) {
-	csys_fs sysfs("/sys/bus/platform/devices/INT3400:00/");
+	csys_fs sysfs(int3400_base_path.c_str());
 	int oem_condition = -1;
 
 	if (condition.condition >= Oem0 && condition.condition <= Oem5)
-		oem_condition = (int) condition.condition - 19;
+		oem_condition = (int) condition.condition - Oem0;
 	else if (condition.condition >= (adaptive_condition) 0x1000
 			&& condition.condition < (adaptive_condition) 0x10000)
 		oem_condition = (int) condition.condition - 0x1000 + 6;
@@ -878,6 +1021,15 @@ int cthd_engine_adaptive::evaluate_platform_type_condition(
 	return compare_condition(condition, value);
 }
 
+int cthd_engine_adaptive::evaluate_power_slider_condition(
+		struct condition condition) {
+
+	// We don't have a power slider currently, just set it to 75 which
+	// equals "Better Performance" (using 100 would be more aggressive).
+
+	return compare_condition(condition, 75);
+}
+
 int cthd_engine_adaptive::evaluate_ac_condition(struct condition condition) {
 	int value = 0;
 	bool on_battery = up_client_get_on_battery(upower_client);
@@ -921,6 +1073,10 @@ int cthd_engine_adaptive::evaluate_condition(struct condition condition) {
 
 	if (condition.condition == Platform_type) {
 		ret = evaluate_platform_type_condition(condition);
+	}
+
+	if (condition.condition == Power_slider) {
+		ret = evaluate_power_slider_condition(condition);
 	}
 
 	if (ret) {
@@ -1009,9 +1165,16 @@ int cthd_engine_adaptive::install_passive(struct psv *psv) {
 	cthd_cdev *cdev = search_cdev(psv_cdev);
 
 	if (!cdev) {
-		thd_log_warn("Unable to find a cooling device for %s\n",
+		if (!psv_cdev.compare(0, 4, "TCPU")) {
+			psv_cdev= "B0D4";
+			cdev = search_cdev(psv_cdev);
+		}
+
+		if (!cdev) {
+			thd_log_warn("Unable to find a cooling device for %s\n",
 				psv_cdev.c_str());
-		return THD_ERROR;
+			return THD_ERROR;
+		}
 	}
 
 	cthd_sensor *sensor = search_sensor(psv_zone);
@@ -1199,10 +1362,21 @@ void cthd_engine_adaptive::set_int3400_target(struct adaptive_target target) {
 		}
 
 		thd_log_info("\n\n ZONE DUMP BEGIN\n");
+		int new_zone_count = 0;
 		for (unsigned int i = 0; i < zones.size(); ++i) {
 			zones[i]->zone_dump();
+			if (zones[i]->zone_active_status())
+				++new_zone_count;
 		}
 		thd_log_info("\n\n ZONE DUMP END\n");
+		if (!new_zone_count) {
+			thd_log_warn("Adaptive policy couldn't create any zones\n");
+			thd_log_warn("Possibly some sensors in the PSVT are missing\n");
+			thd_log_warn("Restart in non adaptive mode via systemd\n");
+			csys_fs sysfs("/tmp/ignore_adaptive");
+			sysfs.create();
+			exit(EXIT_FAILURE);
+		}
 
 	}
 	if (target.code == "PSV") {
@@ -1222,10 +1396,19 @@ void cthd_engine_adaptive::execute_target(struct adaptive_target target) {
 		name = target.participant.substr(pos + 1);
 	cdev = search_cdev(name);
 	if (!cdev) {
+		if (!name.compare(0, 4, "TCPU")) {
+			name = "B0D4";
+			cdev = search_cdev(name);
+		}
+	}
+
+	thd_log_info("looking for cdev %s\n", name.c_str());
+	if (!cdev) {
+		thd_log_info("cdev %s not found\n", name.c_str());
 		if (target.participant == int3400_path) {
 			set_int3400_target(target);
+			return;
 		}
-		return;
 	}
 
 	if (target.code == "PSVT") {
@@ -1243,7 +1426,8 @@ void cthd_engine_adaptive::execute_target(struct adaptive_target target) {
 		return;
 	}
 	thd_log_info("target:%s %d\n", target.code.c_str(), argument);
-	cdev->set_adaptive_target(target);
+	if (cdev)
+		cdev->set_adaptive_target(target);
 }
 
 void cthd_engine_adaptive::exec_fallback_target(int target){
@@ -1256,6 +1440,42 @@ void cthd_engine_adaptive::exec_fallback_target(int target){
 }
 
 void cthd_engine_adaptive::update_engine_state() {
+
+	if (passive_def_only) {
+		if (!passive_def_processed) {
+			thd_log_info("IETM_D0 processed\n");
+			passive_def_processed = 1;
+
+			for (unsigned int i = 0; i < zones.size(); ++i) {
+				cthd_zone *_zone = zones[i];
+				_zone->zone_reset(1);
+				_zone->trip_delete_all();
+
+				if (_zone && _zone->zone_active_status())
+					_zone->set_zone_inactive();
+			}
+
+			struct psvt *psvt = find_def_psvt();
+			if (!psvt)
+				return;
+
+			std::vector<struct psv> psvs = psvt->psvs;
+
+			thd_log_info("Name :%s\n", psvt->name.c_str());
+			for (unsigned int j = 0; j < psvs.size(); ++j) {
+				install_passive(&psvs[j]);
+			}
+
+			thd_log_info("\n\n ZONE DUMP BEGIN\n");
+			for (unsigned int i = 0; i < zones.size(); ++i) {
+				zones[i]->zone_dump();
+			}
+			thd_log_info("\n\n ZONE DUMP END\n");
+		}
+
+		return;
+	}
+
 	int target = evaluate_conditions();
 	if (target == -1) {
 		if (fallback_id >= 0 && !policy_active) {
@@ -1334,19 +1554,38 @@ void cthd_engine_adaptive::setup_input_devices() {
 
 int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check) {
 	char *buf;
-	csys_fs sysfs("/sys/");
+	csys_fs sysfs("");
 	size_t size;
+
+	check_cpu_id();
+	if (!processor_id_match()) {
+		thd_log_msg("Unsupported cpu model or platform\n");
+		exit(EXIT_SUCCESS);
+	}
+
+	csys_fs _sysfs("/tmp/ignore_adaptive");
+	if (_sysfs.exists()) {
+		return THD_ERROR;
+	}
 
 	parser_disabled = true;
 	force_mmio_rapl = true;
 
-	if (sysfs.read("bus/platform/devices/INT3400:00/firmware_node/path",
+	if (sysfs.exists("/sys/bus/platform/devices/INT3400:00")) {
+		int3400_base_path = "/sys/bus/platform/devices/INT3400:00/";
+	} else if (sysfs.exists("/sys/bus/platform/devices/INTC1040:00")) {
+		int3400_base_path = "/sys/bus/platform/devices/INTC1040:00/";
+	} else {
+		return THD_ERROR;
+	}
+
+	if (sysfs.read(int3400_base_path + "firmware_node/path",
 			int3400_path) < 0) {
 		thd_log_debug("Unable to locate INT3400 firmware path\n");
 		return THD_ERROR;
 	}
 
-	size = sysfs.size("bus/platform/devices/INT3400:00/data_vault");
+	size = sysfs.size(int3400_base_path + "data_vault");
 	if (size == 0) {
 		thd_log_debug("Unable to open GDDV data vault\n");
 		return THD_ERROR;
@@ -1355,20 +1594,45 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check) {
 	buf = new char[size];
 	if (!buf) {
 		thd_log_error("Unable to allocate memory for GDDV");
-		return THD_ERROR;
+		return THD_FATAL_ERROR;
 	}
 
-	if (sysfs.read("bus/platform/devices/INT3400:00/data_vault", buf, size)
+	if (sysfs.read(int3400_base_path + "data_vault", buf, size)
 			< int(size)) {
 		thd_log_debug("Unable to read GDDV data vault\n");
 		delete[] buf;
-		return THD_ERROR;
+		return THD_FATAL_ERROR;
 	}
 
-	if (parse_gddv(buf, size)) {
-		thd_log_debug("Unable to parse GDDV");
-		delete[] buf;
-		return THD_ERROR;
+	try {
+		if (parse_gddv(buf, size, NULL)) {
+			thd_log_debug("Unable to parse GDDV");
+			delete[] buf;
+			return THD_FATAL_ERROR;
+		}
+
+		merge_appc();
+
+		dump_ppcc();
+		dump_psvt();
+		dump_apat();
+		dump_apct();
+	} catch (std::exception &e) {
+		thd_log_warn("%s\n", e.what());
+		delete [] buf;
+		return THD_FATAL_ERROR;
+	}
+
+	if (!conditions.size()) {
+		thd_log_info("No adaptive conditions present\n");
+
+		struct psvt *psvt = find_def_psvt();
+
+		if (psvt) {
+			thd_log_info("IETM.D0 found\n");
+			passive_def_only = 1;
+		}
+		return cthd_engine::thd_engine_start(ignore_cpuid_check);
 	}
 
 	setup_input_devices();

@@ -157,6 +157,10 @@ protected:
 	int current_condition_set;
 	int policy_active;
 	int fallback_id;
+	std::string int3400_base_path;
+	int passive_def_only;
+	int passive_def_processed;
+
 	int get_type(char *object, int *offset);
 	uint64_t get_uint64(char *object, int *offset);
 	char* get_string(char *object, int *offset);
@@ -169,7 +173,8 @@ protected:
 	int parse_ppcc(char *name, char *ppcc, int len);
 	int parse_psvt(char *name, char *psvt, int len);
 	int handle_compressed_gddv(char *buf, int size);
-	int parse_gddv(char *buf, int size);
+	int parse_gddv_key(char *buf, int size, int *end_offset);
+	int parse_gddv(char *buf, int size, int *end_offset);
 	struct psvt* find_psvt(std::string name);
 	int install_passive(struct psv *psv);
 	void set_trip(std::string device, std::string argument);
@@ -184,6 +189,7 @@ protected:
 	int evaluate_lid_condition(struct condition condition);
 	int evaluate_workload_condition(struct condition condition);
 	int evaluate_platform_type_condition(struct condition condition);
+	int evaluate_power_slider_condition(struct condition condition);
 	int evaluate_condition(struct condition condition);
 	int evaluate_condition_set(std::vector<struct condition> condition_set);
 	int evaluate_conditions();
@@ -195,11 +201,14 @@ protected:
 	void dump_apct();
 	void dump_ppcc();
 	void dump_psvt();
+	struct psvt *find_def_psvt();
+
 public:
 	cthd_engine_adaptive() :
 			cthd_engine_default("63BE270F-1C11-48FD-A6F7-3AF253FF3E2D"), upower_client(
-					NULL), tablet_dev(NULL), current_condition_set(0xffff), policy_active(
-					0), fallback_id(-1) {
+			NULL), tablet_dev(NULL), current_condition_set(0xffff), policy_active(
+					0), fallback_id(-1), int3400_base_path(""), passive_def_only(
+					0), passive_def_processed(0) {
 	}
 
 	~cthd_engine_adaptive();

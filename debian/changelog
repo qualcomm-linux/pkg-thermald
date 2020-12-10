@@ -1,3 +1,10 @@
+thermald (2.4.1-1) unstable; urgency=medium
+
+  * sync with latest upstream release 2.4.1
+   - drop patches that are in 2.4.1
+
+ -- Colin King <colin.king@canonical.com>  Thu, 10 Dec 2020 17:00:01 +0000
+
 thermald (2.3-5) unstable; urgency=medium
 
   * Pull in latest upstream fixes:

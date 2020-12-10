@@ -214,6 +214,19 @@ int cthd_sysfs_cdev_rapl::rapl_update_pl1(int pl1)
 	return THD_SUCCESS;
 }
 
+int cthd_sysfs_cdev_rapl::rapl_read_pl2()
+{
+	std::stringstream temp_power_str;
+	int current_pl2;
+
+	temp_power_str << "constraint_" << pl2_index << "_power_limit_uw";
+	if (cdev_sysfs.read(temp_power_str.str(), &current_pl2) > 0) {
+		return current_pl2;
+	}
+
+	return THD_ERROR;
+}
+
 int cthd_sysfs_cdev_rapl::rapl_update_pl2(int pl2)
 {
 	std::stringstream temp_power_str;
@@ -253,6 +266,22 @@ int cthd_sysfs_cdev_rapl::rapl_update_time_window(int time_window)
 	std::stringstream temp_time_str;
 
 	temp_time_str << "constraint_" << constraint_index << "_time_window_us";
+
+	if (cdev_sysfs.write(temp_time_str.str(), time_window) <= 0) {
+		thd_log_info(
+				"pkg_power: powercap RAPL time window failed to write %d \n",
+				time_window);
+		return THD_ERROR;
+	}
+
+	return THD_SUCCESS;
+}
+
+int cthd_sysfs_cdev_rapl::rapl_update_pl2_time_window(int time_window)
+{
+	std::stringstream temp_time_str;
+
+	temp_time_str << "constraint_" << pl2_index << "_time_window_us";
 
 	if (cdev_sysfs.write(temp_time_str.str(), time_window) <= 0) {
 		thd_log_info(
@@ -359,9 +388,20 @@ int cthd_sysfs_cdev_rapl::update() {
 		dynamic_phy_max_enable = true;
 		//set_debounce_interval(1);
 
-		// By default enable the rapl device to enforce any power limits
-		rapl_update_enable_status(1);
-
+		// Some system has PL2 limit as 0, then try to set PL2 limit also
+		if (!rapl_read_pl2()) {
+			thd_log_info("PL2 power limit is 0, will conditionally enable\n");
+			if (pl1_max_pwr) {
+				thd_log_info("PL2 limits are updated to %d %d\n", pl1_max_pwr,
+						pl1_max_window);
+				rapl_update_pl2(pl1_max_pwr);
+				rapl_update_pl2_time_window(pl1_max_window);
+				rapl_update_enable_status(1);
+			}
+		} else {
+			// By default enable the rapl device to enforce any power limits
+			rapl_update_enable_status(1);
+		}
 	} else {
 
 		// This is not a DPTF platform
@@ -440,6 +480,15 @@ bool cthd_sysfs_cdev_rapl::read_ppcc_power_limits() {
 		pl0_max_window = ppcc->time_wind_max * 1000;
 		pl0_step_pwr = ppcc->step_size * 1000;
 
+		pl1_valid = ppcc->limit_1_valid;
+		if (pl1_valid) {
+			pl1_max_pwr = ppcc->power_limit_1_max * 1000;
+			pl1_min_pwr = ppcc->power_limit_1_min * 1000;
+			pl1_min_window = ppcc->time_wind_1_min * 1000;
+			pl1_max_window = ppcc->time_wind_1_max * 1000;
+			pl1_step_pwr = ppcc->step_1_size * 1000;
+		}
+
 		if (pl0_max_pwr <= pl0_min_pwr) {
 			thd_log_info("Invalid limits: ppcc limits max:%u min:%u  min_win:%u step:%u\n",
 					pl0_max_pwr, pl0_min_pwr, pl0_min_window, pl0_step_pwr);
@@ -454,6 +503,15 @@ bool cthd_sysfs_cdev_rapl::read_ppcc_power_limits() {
 
 		return true;
 	}
+
+	std::string domain_name;
+
+	// Since this base class is also used by DRAM rapl, avoid reading PPCC as
+	// there are no power limits defined by DPTF based systems for any other
+	// domain other than package-0
+	cdev_sysfs.read("name", domain_name);
+	if (domain_name != "package-0")
+		return false;
 
 	if (sys_fs.exists("/sys/bus/pci/devices/0000:00:04.0/power_limits/"))
 		sys_fs.update_path("/sys/bus/pci/devices/0000:00:04.0/power_limits/");
