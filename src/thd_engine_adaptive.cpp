@@ -497,6 +497,8 @@ int cthd_engine_adaptive::parse_ppcc(char *name, char *buf, int len) {
 	if (ppcc.power_limit_1_max && ppcc.power_limit_1_min && ppcc.time_wind_1_min
 			&& ppcc.time_wind_1_max && ppcc.step_1_size)
 		ppcc.limit_1_valid = 1;
+	else
+		ppcc.limit_1_valid = 0;
 
 	ppccs.push_back(ppcc);
 
@@ -690,10 +692,11 @@ int cthd_engine_adaptive::parse_gddv_key(char *buf, int size, int *end_offset) {
 
 	str = strtok(key, "/");
 	if (!str) {
+		thd_log_debug("Ignoring key %s\n", key);
+
 		delete[] (key);
 		delete[] (val);
 
-		thd_log_debug("Ignoring key %s\n", key);
 		/* Ignore */
 		return THD_SUCCESS;
 	}
@@ -846,7 +849,7 @@ int cthd_engine_adaptive::verify_condition(struct condition condition) {
 		return 0;
 
 	cond_name = condition_names[MIN(MAX(0, condition.condition), G_N_ELEMENTS(condition_names) - 1)];
-	thd_log_error("Unsupported condition %d (%s)\n", condition.condition, cond_name);
+	thd_log_error("Unsupported condition %" PRIu64 " (%s)\n", condition.condition, cond_name);
 	return THD_ERROR;
 }
 
@@ -880,11 +883,11 @@ int cthd_engine_adaptive::compare_condition(struct condition condition,
 						cond_name.c_str(), comp_str.c_str(), value);
 			} else {
 				thd_log_debug(
-						"compare condition [%s] comparison [%d] value [%d]\n",
+						"compare condition [%s] comparison [%" PRIu64 "] value [%d]\n",
 						cond_name.c_str(), condition.comparison, value);
 			}
 		} else {
-			thd_log_debug("compare condition %d value %d\n",
+			thd_log_debug("compare condition %" PRIu64 " value %d\n",
 					condition.comparison, value);
 		}
 	}
@@ -1046,7 +1049,7 @@ int cthd_engine_adaptive::evaluate_condition(struct condition condition) {
 	if (condition.condition == Default)
 		return THD_SUCCESS;
 
-	thd_log_debug("evaluate condition.condition %d\n", condition.condition);
+	thd_log_debug("evaluate condition.condition %" PRIu64 "\n", condition.condition);
 
 	if ((condition.condition >= Oem0 && condition.condition <= Oem5)
 			|| (condition.condition >= (adaptive_condition) 0x1000
@@ -1187,9 +1190,9 @@ int cthd_engine_adaptive::install_passive(struct psv *psv) {
 	int target_state = 0;
 
 	if (psv->limit.length()) {
-		if (psv->limit == "MAX") {
+		if (!strncasecmp(psv->limit.c_str(),"MAX", 3)) {
 			target_state = TRIP_PT_INVALID_TARGET_STATE;
-		} else if (psv->limit == "MIN") {
+		} else if (!strncasecmp(psv->limit.c_str(),"MIN", 3)) {
 			target_state = 0;
 		} else {
 			std::istringstream buffer(psv->limit);
@@ -1451,7 +1454,7 @@ void cthd_engine_adaptive::update_engine_state() {
 				_zone->zone_reset(1);
 				_zone->trip_delete_all();
 
-				if (_zone && _zone->zone_active_status())
+				if (_zone->zone_active_status())
 					_zone->set_zone_inactive();
 			}
 
