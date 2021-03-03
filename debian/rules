@@ -8,8 +8,6 @@ include /usr/share/dpkg/default.mk
 # needing to build-depend on systemd for systemd.pc
 
 override_dh_update_autotools_config:
-	echo "HERE"
-	pwd
 	mkdir -p m4
 	aclocal --install
 	gtkdocize --copy --flavour no-tmpl
