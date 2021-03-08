@@ -1,3 +1,13 @@
+thermald (2.4.3-2) unstable; urgency=medium
+
+  * Disable some older legacy patches to keep thermald close to upstream
+    release, disable:
+    - 0002-Don-t-keep-on-reading-a-sensor-if-the-temperature-is.patch
+    - 0003-thermald-fix-uninitialised-member.patch
+    - 0004-Remove-processing-when-trip-was-not-activates.patch
+
+ -- Colin King <colin.king@canonical.com>  Tue, 8 Mar 2021 22:37:12 +0000
+
 thermald (2.4.3-1) unstable; urgency=medium
 
   * sync with latest upstream release 2.4.3 (LP: #1917608)
