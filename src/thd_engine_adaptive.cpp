@@ -848,8 +848,12 @@ int cthd_engine_adaptive::verify_condition(struct condition condition) {
 	if (condition.condition == Power_slider)
 		return 0;
 
-	cond_name = condition_names[MIN(MAX(0, condition.condition), G_N_ELEMENTS(condition_names) - 1)];
+	if ( condition.condition >=  ARRAY_SIZE(condition_names))
+		cond_name = "UKNKNOWN";
+	else
+		cond_name = condition_names[condition.condition];
 	thd_log_error("Unsupported condition %" PRIu64 " (%s)\n", condition.condition, cond_name);
+
 	return THD_ERROR;
 }
 
@@ -1150,8 +1154,21 @@ int cthd_engine_adaptive::install_passive(struct psv *psv) {
 
 	cthd_zone *zone = search_zone(psv_zone);
 	if (!zone) {
-		thd_log_warn("Unable to find a zone for %s\n", psv_zone.c_str());
-		return THD_ERROR;
+		if (!psv_zone.compare(0, 4, "B0D4")) {
+			psv_zone= "TCPU";
+			zone = search_zone(psv_zone);
+		}
+
+		if (!zone) {
+			if (!psv_zone.compare(0, 4, "TCPU")) {
+				psv_zone= "B0D4";
+				zone = search_zone(psv_zone);
+			}
+			if (!zone) {
+				thd_log_warn("Unable to find a zone for %s\n", psv_zone.c_str());
+				return THD_ERROR;
+			}
+		}
 	}
 
 	std::string psv_cdev;
@@ -1254,6 +1271,72 @@ void cthd_engine_adaptive::set_trip(std::string target, std::string argument) {
 	thd_log_warn("Unable to find a passive trippoint for %s\n", target.c_str());
 }
 
+void cthd_engine_adaptive::psvt_consolidate()
+{
+	/* Once all tables are installed, we need to consolidate since
+	 * thermald has different implementation.
+	 * If there is only entry of type MAX, then simply use thermald default at temperature + 1
+	 * If there is a next trip after MAX for a target, then choose a temperature limit in the middle
+	 */
+	for (unsigned int i = 0; i < zones.size(); ++i) {
+		cthd_zone *zone = zones[i];
+		unsigned int count = zone->get_trip_count();
+
+		for (unsigned int j = 0; j < count; ++j) {
+			cthd_trip_point *trip = zone->get_trip_at_index(j);
+			int target_state;
+			thd_log_debug("check trip zone:%d:%d\n", i, j);
+			if (trip->is_target_valid(target_state) == THD_SUCCESS) {
+
+				if (target_state == TRIP_PT_INVALID_TARGET_STATE) {
+					if (j == count - 1) {
+						// This is the last "MAX" trip
+						// So make the target state invalid and temperature + 1 C
+						trip->set_first_target_invalid();
+						trip->update_trip_temp(trip->get_trip_temp() + 1000);
+					} else {
+						// This is not the last trip. So something after this
+						// if the next one has the same source and target
+						cthd_trip_point *next_trip = zone->get_trip_at_index(
+								j + 1);
+						// Sinc this is not the last trip in this zone, we don't check
+						// exception, next trip will be valid
+						cthd_cdev *cdev = next_trip->get_first_cdev();
+						if (!cdev) {
+							// Something wrong make the current target invalid
+							trip->set_first_target_invalid();
+							trip->update_trip_temp(
+									trip->get_trip_temp() + 1000);
+							continue;
+						}
+
+						int next_target_state;
+
+						if (trip->get_sensor_id()
+								== next_trip->get_sensor_id() && trip->get_first_cdev()
+								== next_trip->get_first_cdev() && next_trip->is_target_valid(next_target_state) == THD_SUCCESS) {
+
+							// Same source and target and the target state of next is not of type MAX
+							int state = cdev->get_min_state();
+							target_state = (state + next_target_state) / 2;
+							trip->set_first_target(target_state);
+							trip->update_trip_temp(
+									(next_trip->get_trip_temp()
+											+ trip->get_trip_temp()) / 2);
+						} else {
+							// It has different source and target so
+							// So make the target state invalid and temperature + 1 C
+							trip->set_first_target_invalid();
+							trip->update_trip_temp(
+									trip->get_trip_temp() + 1000);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 void cthd_engine_adaptive::set_int3400_target(struct adaptive_target target) {
 	struct psvt *psvt;
 	if (target.code == "PSVT") {
@@ -1264,33 +1347,15 @@ void cthd_engine_adaptive::set_int3400_target(struct adaptive_target target) {
 			return;
 		}
 
-		for (int i = 0; i < (int)psvt->psvs.size(); i++) {
-			struct psv *psv = &psvt->psvs[i];
-			std::string psv_zone;
-
-			size_t pos = psv->target.find_last_of(".");
-			if (pos == std::string::npos)
-				psv_zone = psv->target;
-			else
-				psv_zone = psv->target.substr(pos + 1);
-
-			while (psv_zone.back() == '_') {
-				psv_zone.pop_back();
-			}
-
-			cthd_zone *zone = search_zone(psv_zone);
-			if (zone) {
-				zone->zone_reset(1);
-				zone->trip_delete_all();
-			}
-		}
-
 		for (unsigned int i = 0; i < zones.size(); ++i) {
 			cthd_zone *_zone = zones[i];
 
 			// This is only for debug to plot power, so keep
 			if (_zone && _zone->get_zone_type() == "rapl_pkg_power")
 				continue;
+
+			_zone->zone_reset(1);
+			_zone->trip_delete_all();
 
 			if (_zone && _zone->zone_active_status())
 				_zone->set_zone_inactive();
@@ -1300,69 +1365,7 @@ void cthd_engine_adaptive::set_int3400_target(struct adaptive_target target) {
 			install_passive(&psvt->psvs[i]);
 		}
 
-		/* Once all tables are installed, we need to consolidate since
-		 * thermald has different implementation.
-		 * If there is only entry of type MAX, then simply use thermald default at temperature + 1
-		 * If there is a next trip after MAX for a target, then choose a temperature limit in the middle
-		 */
-		for (unsigned int i = 0; i < zones.size(); ++i) {
-			cthd_zone *zone = zones[i];
-			unsigned int count = zone->get_trip_count();
-
-			for (unsigned int j = 0; j < count; ++j) {
-				cthd_trip_point *trip = zone->get_trip_at_index(j);
-				int target_state;
-				thd_log_debug("check trip zone:%d:%d\n", i, j);
-				if (trip->is_target_valid(target_state) == THD_SUCCESS) {
-
-					if (target_state == TRIP_PT_INVALID_TARGET_STATE) {
-						if (j == count - 1) {
-							// This is the last "MAX" trip
-							// So make the target state invalid and temperature + 1 C
-							trip->set_first_target_invalid();
-							trip->update_trip_temp(
-									trip->get_trip_temp() + 1000);
-						} else {
-							// This is not the last trip. So something after this
-							// if the next one has the same source and target
-							cthd_trip_point *next_trip =
-									zone->get_trip_at_index(j + 1);
-							// Sinc this is not the last trip in this zone, we don't check
-							// exception, next trip will be valid
-							cthd_cdev *cdev = next_trip->get_first_cdev();
-							if (!cdev) {
-								// Something wrong make the current target invalid
-								trip->set_first_target_invalid();
-								trip->update_trip_temp(
-										trip->get_trip_temp() + 1000);
-								continue;
-							}
-
-							int next_target_state;
-
-							if (trip->get_sensor_id()
-									== next_trip->get_sensor_id() && trip->get_first_cdev()
-									== next_trip->get_first_cdev() && next_trip->is_target_valid(next_target_state) == THD_SUCCESS) {
-
-								// Same source and target and the target state of next is not of type MAX
-								int state = cdev->get_min_state();
-								target_state = (state + next_target_state) / 2;
-								trip->set_first_target(target_state);
-								trip->update_trip_temp(
-										(next_trip->get_trip_temp()
-												+ trip->get_trip_temp()) / 2);
-							} else {
-								// It has different source and target so
-								// So make the target state invalid and temperature + 1 C
-								trip->set_first_target_invalid();
-								trip->update_trip_temp(
-										trip->get_trip_temp() + 1000);
-							}
-						}
-					}
-				}
-			}
-		}
+		psvt_consolidate();
 
 		thd_log_info("\n\n ZONE DUMP BEGIN\n");
 		int new_zone_count = 0;
@@ -1468,7 +1471,7 @@ void cthd_engine_adaptive::update_engine_state() {
 			for (unsigned int j = 0; j < psvs.size(); ++j) {
 				install_passive(&psvs[j]);
 			}
-
+			psvt_consolidate();
 			thd_log_info("\n\n ZONE DUMP BEGIN\n");
 			for (unsigned int i = 0; i < zones.size(); ++i) {
 				zones[i]->zone_dump();

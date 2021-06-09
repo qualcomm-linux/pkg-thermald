@@ -65,7 +65,6 @@ private:
 	int rapl_update_time_window(int time_window);
 	int rapl_update_pl2_time_window(int time_window);
 	int rapl_read_enable_status();
-	int rapl_update_enable_status(int enable);
 
 public:
 	static const int rapl_no_time_windows = 6;
@@ -98,7 +97,7 @@ public:
 					0), pl0_min_window(0), pl0_max_window(0), pl0_step_pwr(0), bios_locked(
 					false), constrained(
 					false), power_on_constraint_0_pwr(0), power_on_constraint_0_time_window(
-					0), power_on_enable_status(0)
+					0), power_on_enable_status(0), device_name("TCPU.D0")
 	{
 	}
 
@@ -114,7 +113,7 @@ public:
 	int get_phy_max_state() {
 		return phy_max;
 	}
-
+	int rapl_update_enable_status(int enable);
 };
 
 #endif /* THD_CDEV_RAPL_H_ */

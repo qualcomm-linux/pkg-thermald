@@ -1,3 +1,15 @@
+thermald (2.4.6-1) unstable; urgency=medium
+
+  * sync with latest upstream release 2.4.6:
+   - fix overheating Latitude 7400 (LP: #1930422)
+   - Use Adaptive PPCC limits for RAPL MMIO
+   - Increase power limit for disabled RAPL-MMIO
+   - Special case for default PSVT
+  * 2.4.5 fixes:
+   - Set a very high RAPL MSR PL1 with --adaptive
+
+ -- Colin King <colin.king@canonical.com>  Wed, 9 Jun 2021 16:58:23 +0100
+
 thermald (2.4.3-2) unstable; urgency=medium
 
   * Disable some older legacy patches to keep thermald close to upstream
