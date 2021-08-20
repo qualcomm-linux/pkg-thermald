@@ -1,0 +1,27 @@
+From d28613aea8179c068cfab853f5aa2a0c2b7adebf Mon Sep 17 00:00:00 2001
+From: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
+Date: Thu, 19 Aug 2021 21:29:12 -0700
+Subject: [PATCH] Added Jasper Lake CPU model
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Support Jasper Lake.
+---
+ src/thd_engine.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/thd_engine.cpp b/src/thd_engine.cpp
+index e23f483..59c7659 100644
+--- a/src/thd_engine.cpp
++++ b/src/thd_engine.cpp
+@@ -697,6 +697,7 @@ static supported_ids_t id_table[] = {
+ 		{ 6, 0xa5 }, // Cometlake
+ 		{ 6, 0xa6 }, // Cometlake_L
+ 		{ 6, 0xa7 }, // Rocketlake
++		{ 6, 0x9c }, // Jasper Lake
+ 		{ 0, 0 } // Last Invalid entry
+ };
+ 
+-- 
+2.32.0
+
