@@ -1,3 +1,19 @@
+thermald (2.4.7-2) unstable; urgency=medium
+
+  * Pull in RedHat thermald fixes (Closes: #1005478)
+    - Properly reading evdev devices
+    - Splitting thd_engine_start into two; as otherwise we may print
+      useless warnings (sensors are read too late for condition
+      verification)
+    - Using libevdev to read lid state rather than upower (the
+      functionality is deprecated) (and FTBFS)
+    - Improved cleanup code
+      see: https://github.com/benzea/thermal_daemon/tree/ \
+      benzea/adaptive-improvements
+   * Update maintainer email address
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 23 Feb 2022 18:14:12 +0000
+
 thermald (2.4.7-1) unstable; urgency=medium
 
   * sync with latest upstream release 2.4.7

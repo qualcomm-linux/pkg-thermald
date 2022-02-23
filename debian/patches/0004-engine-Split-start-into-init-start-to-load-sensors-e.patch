@@ -1,0 +1,259 @@
+From 86eddff7845ccd4f87b084a0e572d050b33053e0 Mon Sep 17 00:00:00 2001
+From: Benjamin Berg <bberg@redhat.com>
+Date: Sun, 6 Feb 2022 18:25:10 +0100
+Subject: [PATCH 4/7] engine: Split start into init/start to load sensors
+ earlier
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+The adaptive engine needs to have the sensors loaded early on in order
+to verify conditions. To make sure this works well, split the start
+function into two parts, the first being init and the second being
+start.
+
+For adaptive, the start function still does some verification, as the
+upower availability is important for the lid state (it should switch to
+reading the lid state directly though).
+---
+ src/thd_engine.cpp          | 52 +++++++++++++++++++++----------------
+ src/thd_engine.h            |  3 ++-
+ src/thd_engine_adaptive.cpp | 41 ++++++++++++++++++++++-------
+ src/thd_engine_adaptive.h   |  3 ++-
+ src/thd_engine_default.cpp  | 10 ++++++-
+ 5 files changed, 73 insertions(+), 36 deletions(-)
+
+diff --git a/src/thd_engine.cpp b/src/thd_engine.cpp
+index 67308a2..b528997 100644
+--- a/src/thd_engine.cpp
++++ b/src/thd_engine.cpp
+@@ -174,9 +174,8 @@ bool cthd_engine::set_preference(const int pref) {
+ 	return true;
+ }
+ 
+-int cthd_engine::thd_engine_start(bool ignore_cpuid_check, bool adaptive) {
++int cthd_engine::thd_engine_init(bool ignore_cpuid_check, bool adaptive) {
+ 	int ret;
+-	int wake_fds[2];
+ 
+ 	adaptive_mode = adaptive;
+ 
+@@ -196,6 +195,34 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check, bool adaptive) {
+ 		}
+ 	}
+ 
++	ret = read_thermal_sensors();
++	if (ret != THD_SUCCESS) {
++		thd_log_error("Thermal sysfs Error in reading sensors\n");
++		// This is a fatal error and daemon will exit
++		return THD_FATAL_ERROR;
++	}
++
++	ret = read_cooling_devices();
++	if (ret != THD_SUCCESS) {
++		thd_log_error("Thermal sysfs Error in reading cooling devs\n");
++		// This is a fatal error and daemon will exit
++		return THD_FATAL_ERROR;
++	}
++
++	ret = read_thermal_zones();
++	if (ret != THD_SUCCESS) {
++		thd_log_error("No thermal sensors found\n");
++		// This is a fatal error and daemon will exit
++		return THD_FATAL_ERROR;
++	}
++
++	return THD_SUCCESS;
++}
++
++int cthd_engine::thd_engine_start() {
++	int ret;
++	int wake_fds[2];
++
+ 	check_for_rt_kernel();
+ 
+ 	// Pipe is used for communication between two processes
+@@ -228,27 +255,6 @@ int cthd_engine::thd_engine_start(bool ignore_cpuid_check, bool adaptive) {
+ 		poll_timeout_msec = poll_interval_sec * 1000;
+ 	}
+ 
+-	ret = read_thermal_sensors();
+-	if (ret != THD_SUCCESS) {
+-		thd_log_error("Thermal sysfs Error in reading sensors\n");
+-		// This is a fatal error and daemon will exit
+-		return THD_FATAL_ERROR;
+-	}
+-
+-	ret = read_cooling_devices();
+-	if (ret != THD_SUCCESS) {
+-		thd_log_error("Thermal sysfs Error in reading cooling devs\n");
+-		// This is a fatal error and daemon will exit
+-		return THD_FATAL_ERROR;
+-	}
+-
+-	ret = read_thermal_zones();
+-	if (ret != THD_SUCCESS) {
+-		thd_log_error("No thermal sensors found\n");
+-		// This is a fatal error and daemon will exit
+-		return THD_FATAL_ERROR;
+-	}
+-
+ 	if (parser.platform_matched()) {
+ 		parser.set_default_preference();
+ 		int poll_secs = parser.get_polling_interval();
+diff --git a/src/thd_engine.h b/src/thd_engine.h
+index 4200450..697ff40 100644
+--- a/src/thd_engine.h
++++ b/src/thd_engine.h
+@@ -148,7 +148,8 @@ public:
+ 		return control_mode;
+ 	}
+ 	void thd_engine_thread();
+-	virtual int thd_engine_start(bool ignore_cpuid_check, bool adaptive = false);
++	virtual int thd_engine_init(bool ignore_cpuid_check, bool adaptive = false);
++	virtual int thd_engine_start();
+ 	int thd_engine_stop();
+ 	int check_cpu_id();
+ 
+diff --git a/src/thd_engine_adaptive.cpp b/src/thd_engine_adaptive.cpp
+index 4d0fd6b..232dcd4 100644
+--- a/src/thd_engine_adaptive.cpp
++++ b/src/thd_engine_adaptive.cpp
+@@ -1594,11 +1594,14 @@ static void power_profiles_changed_cb(cthd_engine_adaptive *engine)
+ 	engine->update_power_slider();
+ }
+ 
+-int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptive) {
+-	g_autoptr(GDBusConnection) bus = NULL;
+-	char *buf;
++int cthd_engine_adaptive::thd_engine_init(bool ignore_cpuid_check, bool adaptive) {
+ 	csys_fs sysfs("");
++	char *buf;
+ 	size_t size;
++	int res;
++
++	parser_disabled = true;
++	force_mmio_rapl = true;
+ 
+ 	if (!ignore_cpuid_check) {
+ 		check_cpu_id();
+@@ -1613,9 +1616,6 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 		return THD_ERROR;
+ 	}
+ 
+-	parser_disabled = true;
+-	force_mmio_rapl = true;
+-
+ 	if (sysfs.exists("/sys/bus/platform/devices/INT3400:00")) {
+ 		int3400_base_path = "/sys/bus/platform/devices/INT3400:00/";
+ 	} else if (sysfs.exists("/sys/bus/platform/devices/INTC1040:00")) {
+@@ -1626,6 +1626,12 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 		return THD_ERROR;
+ 	}
+ 
++	/* Read the sensors/zones */
++	res = cthd_engine::thd_engine_init(ignore_cpuid_check, adaptive);
++	if (res != THD_SUCCESS)
++		return res;
++
++
+ 	if (sysfs.read(int3400_base_path + "firmware_node/path",
+ 			int3400_path) < 0) {
+ 		thd_log_debug("Unable to locate INT3400 firmware path\n");
+@@ -1664,6 +1670,8 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 		dump_psvt();
+ 		dump_apat();
+ 		dump_apct();
++
++		delete [] buf;
+ 	} catch (std::exception &e) {
+ 		thd_log_warn("%s\n", e.what());
+ 		delete [] buf;
+@@ -1679,9 +1687,18 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 			thd_log_info("IETM.D0 found\n");
+ 			passive_def_only = 1;
+ 		}
+-		return cthd_engine::thd_engine_start(ignore_cpuid_check);
++		return THD_SUCCESS;
+ 	}
+ 
++	return THD_SUCCESS;
++}
++
++int cthd_engine_adaptive::thd_engine_start() {
++	g_autoptr(GDBusConnection) bus = NULL;
++
++	if (passive_def_only)
++		return cthd_engine::thd_engine_start();
++
+ 	setup_input_devices();
+ 
+ 	upower_client = up_client_new();
+@@ -1704,7 +1721,6 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 				thd_log_info("fallback id:%d\n", i);
+ 				fallback_id = i;
+ 			} else {
+-				delete[] buf;
+ 				return THD_ERROR;
+ 			}
+ 		}
+@@ -1737,7 +1753,7 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 	evaluate_conditions();
+ 	thd_log_info("adaptive engine reached end");
+ 
+-	return cthd_engine::thd_engine_start(ignore_cpuid_check, adaptive);
++	return cthd_engine::thd_engine_start();
+ }
+ 
+ int thd_engine_create_adaptive_engine(bool ignore_cpuid_check) {
+@@ -1746,7 +1762,12 @@ int thd_engine_create_adaptive_engine(bool ignore_cpuid_check) {
+ 	thd_engine->set_poll_interval(thd_poll_interval);
+ 
+ 	// Initialize thermald objects
+-	if (thd_engine->thd_engine_start(ignore_cpuid_check, true) != THD_SUCCESS) {
++	if (thd_engine->thd_engine_init(ignore_cpuid_check, true) != THD_SUCCESS) {
++		thd_log_info("THD engine init failed\n");
++		return THD_ERROR;
++	}
++
++	if (thd_engine->thd_engine_start() != THD_SUCCESS) {
+ 		thd_log_info("THD engine start failed\n");
+ 		return THD_ERROR;
+ 	}
+diff --git a/src/thd_engine_adaptive.h b/src/thd_engine_adaptive.h
+index bfd6c86..d044698 100644
+--- a/src/thd_engine_adaptive.h
++++ b/src/thd_engine_adaptive.h
+@@ -218,7 +218,8 @@ public:
+ 
+ 	~cthd_engine_adaptive();
+ 	ppcc_t* get_ppcc_param(std::string name);
+-	int thd_engine_start(bool ignore_cpuid_check, bool adaptive);
++	int thd_engine_init(bool ignore_cpuid_check, bool adaptive);
++	int thd_engine_start();
+ 	void update_engine_state();
+ 	void update_power_slider();
+ };
+diff --git a/src/thd_engine_default.cpp b/src/thd_engine_default.cpp
+index 2db7850..18635c5 100644
+--- a/src/thd_engine_default.cpp
++++ b/src/thd_engine_default.cpp
+@@ -838,7 +838,15 @@ int thd_engine_create_default_engine(bool ignore_cpuid_check,
+ 	if (conf_file)
+ 		thd_engine->set_config_file(conf_file);
+ 
+-	res = thd_engine->thd_engine_start(ignore_cpuid_check);
++	res = thd_engine->thd_engine_init(ignore_cpuid_check);
++	if (res != THD_SUCCESS) {
++		if (res == THD_FATAL_ERROR)
++			thd_log_error("THD engine init failed\n");
++		else
++			thd_log_msg("THD engine init failed\n");
++	}
++
++	res = thd_engine->thd_engine_start();
+ 	if (res != THD_SUCCESS) {
+ 		if (res == THD_FATAL_ERROR)
+ 			thd_log_error("THD engine start failed\n");
+-- 
+2.35.1
+

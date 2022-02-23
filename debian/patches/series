@@ -1,0 +1,7 @@
+0001-adaptive-Unref-UPower-client-in-destructor.patch
+0002-adaptive-Improve-cleanup-of-dynamic-data-sources.patch
+0003-adaptive-Implement-Power-Slider-following-power-prof.patch
+0004-engine-Split-start-into-init-start-to-load-sensors-e.patch
+0005-adaptive-Open-event-FD-non-blocking-and-with-CLOEXEC.patch
+0006-adaptive-Process-evdev-events-for-tablet-mode.patch
+0007-adaptive-Read-the-lid-state-directly-from-the-kernel.patch

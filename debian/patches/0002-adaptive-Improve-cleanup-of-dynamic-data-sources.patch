@@ -1,0 +1,66 @@
+From 94711ae29223415a75240ed943c5caf418416b12 Mon Sep 17 00:00:00 2001
+From: Benjamin Berg <bberg@redhat.com>
+Date: Sun, 6 Feb 2022 18:39:28 +0100
+Subject: [PATCH 2/7] adaptive: Improve cleanup of dynamic data sources
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Clean them all up from the finalizer. Also add a helper function, and do
+the same in case the adaptive engine falls back to a static
+configuration.
+---
+ src/thd_engine_adaptive.cpp | 17 ++++++++++++-----
+ src/thd_engine_adaptive.h   |  1 +
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/src/thd_engine_adaptive.cpp b/src/thd_engine_adaptive.cpp
+index 256eb4a..24600c9 100644
+--- a/src/thd_engine_adaptive.cpp
++++ b/src/thd_engine_adaptive.cpp
+@@ -88,8 +88,18 @@ class _gddv_exception: public std::exception {
+ 	}
+ } gddv_exception;
+ 
++void cthd_engine_adaptive::destroy_dynamic_sources() {
++	g_clear_object(&upower_client);
++
++	if (tablet_dev) {
++		close(libevdev_get_fd(tablet_dev));
++		libevdev_free(tablet_dev);
++		tablet_dev = NULL;
++	}
++}
++
+ cthd_engine_adaptive::~cthd_engine_adaptive() {
+-	g_clear_object (&upower_client);
++	destroy_dynamic_sources();
+ }
+ 
+ int cthd_engine_adaptive::get_type(char *object, int *offset) {
+@@ -1660,10 +1670,7 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 			thd_log_info("Also unable to evaluate any conditions\n");
+ 			thd_log_info("Falling back to use configuration with the highest power\n");
+ 
+-			if (tablet_dev)
+-				libevdev_free(tablet_dev);
+-
+-			// Looks like there is no free call for up_client_new()
++			destroy_dynamic_sources();
+ 
+ 			int i = find_agressive_target();
+ 			thd_log_info("target:%d\n", i);
+diff --git a/src/thd_engine_adaptive.h b/src/thd_engine_adaptive.h
+index 043c0d6..330516c 100644
+--- a/src/thd_engine_adaptive.h
++++ b/src/thd_engine_adaptive.h
+@@ -161,6 +161,7 @@ protected:
+ 	int passive_def_only;
+ 	int passive_def_processed;
+ 
++	void destroy_dynamic_sources();
+ 	int get_type(char *object, int *offset);
+ 	uint64_t get_uint64(char *object, int *offset);
+ 	char* get_string(char *object, int *offset);
+-- 
+2.35.1
+

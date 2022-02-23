@@ -1,0 +1,142 @@
+From 5103fe63f7f02754e6667b0a70686577f81e4b9b Mon Sep 17 00:00:00 2001
+From: Benjamin Berg <bberg@redhat.com>
+Date: Wed, 19 Jan 2022 14:18:53 +0100
+Subject: [PATCH 3/7] adaptive: Implement Power Slider following
+ power-profiles-deamon
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+This maps the three power-profiles-daemon states to appropriate values
+of the power slider DPTF control.
+
+Note that thermald already has the "preference" setting which can be set
+to either "PERFORMANCE" or "ENERGY_CONSERVE". As such, an alternative
+could be to expand the list of valid preferences and then let p-p-d set
+the value via dbus.
+---
+ src/thd_engine_adaptive.cpp | 56 ++++++++++++++++++++++++++++++++++---
+ src/thd_engine_adaptive.h   |  6 +++-
+ 2 files changed, 57 insertions(+), 5 deletions(-)
+
+diff --git a/src/thd_engine_adaptive.cpp b/src/thd_engine_adaptive.cpp
+index 24600c9..4d0fd6b 100644
+--- a/src/thd_engine_adaptive.cpp
++++ b/src/thd_engine_adaptive.cpp
+@@ -1042,10 +1042,7 @@ int cthd_engine_adaptive::evaluate_platform_type_condition(
+ int cthd_engine_adaptive::evaluate_power_slider_condition(
+ 		struct condition condition) {
+ 
+-	// We don't have a power slider currently, just set it to 75 which
+-	// equals "Better Performance" (using 100 would be more aggressive).
+-
+-	return compare_condition(condition, 75);
++	return compare_condition(condition, power_slider);
+ }
+ 
+ int cthd_engine_adaptive::evaluate_ac_condition(struct condition condition) {
+@@ -1569,7 +1566,36 @@ void cthd_engine_adaptive::setup_input_devices() {
+ 	}
+ }
+ 
++void cthd_engine_adaptive::update_power_slider()
++{
++	g_autoptr(GVariant) active_profile_v = NULL;
++
++	active_profile_v = g_dbus_proxy_get_cached_property (power_profiles_daemon, "ActiveProfile");
++	if (active_profile_v && g_variant_is_of_type (active_profile_v, G_VARIANT_TYPE_STRING)) {
++		const char *active_profile = g_variant_get_string (active_profile_v, NULL);
++
++		if (strcmp (active_profile, "power-saver") == 0)
++			power_slider = 25; /* battery saver */
++		else if (strcmp (active_profile, "balanced") == 0)
++			power_slider = 75; /* better performance */
++		else if (strcmp (active_profile, "performance") == 0)
++			power_slider = 100; /* best performance */
++		else
++			power_slider = 75;
++	} else {
++		power_slider = 75;
++	}
++
++	thd_log_info("Power slider is now set to %d\n", power_slider);
++}
++
++static void power_profiles_changed_cb(cthd_engine_adaptive *engine)
++{
++	engine->update_power_slider();
++}
++
+ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptive) {
++	g_autoptr(GDBusConnection) bus = NULL;
+ 	char *buf;
+ 	csys_fs sysfs("");
+ 	size_t size;
+@@ -1686,6 +1712,28 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
+ 
+ 	set_control_mode(EXCLUSIVE);
+ 
++	bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, NULL);
++	if (bus) {
++		power_profiles_daemon = g_dbus_proxy_new_sync (bus,
++							       G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
++							       NULL,
++							       "net.hadess.PowerProfiles",
++							       "/net/hadess/PowerProfiles",
++							       "net.hadess.PowerProfiles",
++							       NULL,
++							       NULL);
++
++		if (power_profiles_daemon) {
++			g_signal_connect_swapped (power_profiles_daemon,
++						  "g-properties-changed",
++						  (GCallback) power_profiles_changed_cb,
++						  this);
++			power_profiles_changed_cb(this);
++		} else {
++			thd_log_info("Could not setup DBus watch for power-profiles-daemon");
++		}
++	}
++
+ 	evaluate_conditions();
+ 	thd_log_info("adaptive engine reached end");
+ 
+diff --git a/src/thd_engine_adaptive.h b/src/thd_engine_adaptive.h
+index 330516c..bfd6c86 100644
+--- a/src/thd_engine_adaptive.h
++++ b/src/thd_engine_adaptive.h
+@@ -153,6 +153,7 @@ protected:
+ 	std::vector<struct psvt> psvts;
+ 	std::string int3400_path;
+ 	UpClient *upower_client;
++	GDBusProxy *power_profiles_daemon;
+ 	struct libevdev *tablet_dev;
+ 	int current_condition_set;
+ 	int policy_active;
+@@ -161,6 +162,8 @@ protected:
+ 	int passive_def_only;
+ 	int passive_def_processed;
+ 
++	int power_slider;
++
+ 	void destroy_dynamic_sources();
+ 	int get_type(char *object, int *offset);
+ 	uint64_t get_uint64(char *object, int *offset);
+@@ -210,13 +213,14 @@ public:
+ 			cthd_engine_default("63BE270F-1C11-48FD-A6F7-3AF253FF3E2D"), upower_client(
+ 			NULL), tablet_dev(NULL), current_condition_set(0xffff), policy_active(
+ 					0), fallback_id(-1), int3400_base_path(""), passive_def_only(
+-					0), passive_def_processed(0) {
++					0), passive_def_processed(0), power_slider(75) {
+ 	}
+ 
+ 	~cthd_engine_adaptive();
+ 	ppcc_t* get_ppcc_param(std::string name);
+ 	int thd_engine_start(bool ignore_cpuid_check, bool adaptive);
+ 	void update_engine_state();
++	void update_power_slider();
+ };
+ 
+ int thd_engine_create_adaptive_engine(bool ignore_cpuid_check);
+-- 
+2.35.1
+
