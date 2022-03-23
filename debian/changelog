@@ -1,3 +1,12 @@
+thermald (2.4.9-1) unstable; urgency=medium
+
+  * sync to thermald 2.4.9 (Closes: #1006819)
+  * Remove RedHat thermald fixes introduced in previous 2.4.7-2 release
+    now that these are in 2.4.9
+  * This release contains fixes for Dell Tiger Lake And Alder Lake
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 23 Mar 2022 09:31:22 +0000
+
 thermald (2.4.7-2) unstable; urgency=medium
 
   * Pull in RedHat thermald fixes (Closes: #1005478)

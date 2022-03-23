@@ -728,7 +728,7 @@ int cthd_engine_default::read_cooling_devices() {
 
 			// Prefer MMIO access over MSR access for B0D4
 			if (rapl_dev) {
-				struct adaptive_target target;
+				struct adaptive_target target = {};
 
 				rapl_dev->set_cdev_alias("");
 
@@ -830,6 +830,9 @@ int thd_engine_create_default_engine(bool ignore_cpuid_check,
 		bool exclusive_control, const char *conf_file) {
 	int res;
 	thd_engine = new cthd_engine_default();
+	if (!thd_engine)
+		return THD_ERROR;
+
 	if (exclusive_control)
 		thd_engine->set_control_mode(EXCLUSIVE);
 
@@ -838,7 +841,15 @@ int thd_engine_create_default_engine(bool ignore_cpuid_check,
 	if (conf_file)
 		thd_engine->set_config_file(conf_file);
 
-	res = thd_engine->thd_engine_start(ignore_cpuid_check);
+	res = thd_engine->thd_engine_init(ignore_cpuid_check);
+	if (res != THD_SUCCESS) {
+		if (res == THD_FATAL_ERROR)
+			thd_log_error("THD engine init failed\n");
+		else
+			thd_log_msg("THD engine init failed\n");
+	}
+
+	res = thd_engine->thd_engine_start();
 	if (res != THD_SUCCESS) {
 		if (res == THD_FATAL_ERROR)
 			thd_log_error("THD engine start failed\n");

@@ -88,7 +88,29 @@ class _gddv_exception: public std::exception {
 	}
 } gddv_exception;
 
+void cthd_engine_adaptive::destroy_dynamic_sources() {
+	g_clear_object(&upower_client);
+	g_clear_object(&power_profiles_daemon);
+
+	if (tablet_dev) {
+		close(libevdev_get_fd(tablet_dev));
+		libevdev_free(tablet_dev);
+
+		if (lid_dev == tablet_dev)
+			lid_dev = NULL;
+		tablet_dev = NULL;
+	}
+
+	if (lid_dev) {
+		close(libevdev_get_fd(lid_dev));
+		libevdev_free(lid_dev);
+
+		lid_dev = NULL;
+	}
+}
+
 cthd_engine_adaptive::~cthd_engine_adaptive() {
+	destroy_dynamic_sources();
 }
 
 int cthd_engine_adaptive::get_type(char *object, int *offset) {
@@ -253,6 +275,7 @@ int cthd_engine_adaptive::parse_apct(char *apct, int len) {
 				condition.state = 0;
 				condition.state_entry_time = 0;
 				condition.target = target;
+				condition.ignore_condition = 0;
 
 				if (offset >= len) {
 					thd_log_warn("Read off end of buffer in APCT parsing\n");
@@ -766,7 +789,7 @@ int cthd_engine_adaptive::parse_gddv(char *buf, int size, int *end_offset) {
 		char name[ESIFDV_NAME_LEN + 1] = { 0 };
 		char comment[ESIFDV_DESC_LEN + 1] = { 0 };
 
-		if (header->v2.flags == ESIF_SERVICE_CONFIG_COMPRESSED) {
+		if (header->v2.flags & ESIF_SERVICE_CONFIG_COMPRESSED) {
 			thd_log_debug("Uncompress GDDV payload\n");
 			return handle_compressed_gddv(buf, size);
 		}
@@ -837,7 +860,7 @@ int cthd_engine_adaptive::verify_condition(struct condition condition) {
 			|| condition.condition == (adaptive_condition) 0) {
 		return 0;
 	}
-	if (condition.condition == Lid_state && upower_client != NULL)
+	if (condition.condition == Lid_state && lid_dev != NULL)
 		return 0;
 	if (condition.condition == Power_source && upower_client != NULL)
 		return 0;
@@ -976,6 +999,9 @@ int cthd_engine_adaptive::evaluate_temperature_condition(
 		struct condition condition) {
 	std::string sensor_name;
 
+	if (condition.ignore_condition)
+		return THD_ERROR;
+
 	size_t pos = condition.device.find_last_of(".");
 	if (pos == std::string::npos)
 		sensor_name = condition.device;
@@ -986,6 +1012,7 @@ int cthd_engine_adaptive::evaluate_temperature_condition(
 	if (!sensor) {
 		thd_log_warn("Unable to find a sensor for %s\n",
 				condition.device.c_str());
+		condition.ignore_condition = 1;
 		return THD_ERROR;
 	}
 
@@ -999,11 +1026,16 @@ int cthd_engine_adaptive::evaluate_temperature_condition(
 
 int cthd_engine_adaptive::evaluate_lid_condition(struct condition condition) {
 	int value = 0;
-	bool lid_closed = up_client_get_lid_is_closed(upower_client);
 
-	if (!lid_closed)
-		value = 1;
+	if (lid_dev) {
+		struct input_event ev;
 
+		while (libevdev_has_event_pending(lid_dev))
+			libevdev_next_event(lid_dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+
+		int lid_closed = libevdev_get_event_value(lid_dev, EV_SW, SW_LID);
+		value = !lid_closed;
+	}
 	return compare_condition(condition, value);
 }
 
@@ -1020,6 +1052,11 @@ int cthd_engine_adaptive::evaluate_platform_type_condition(
 	int value = 1;
 
 	if (tablet_dev) {
+		struct input_event ev;
+
+		while (libevdev_has_event_pending(tablet_dev))
+			libevdev_next_event(tablet_dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+
 		int tablet = libevdev_get_event_value(tablet_dev, EV_SW,
 				SW_TABLET_MODE);
 		if (tablet)
@@ -1031,10 +1068,7 @@ int cthd_engine_adaptive::evaluate_platform_type_condition(
 int cthd_engine_adaptive::evaluate_power_slider_condition(
 		struct condition condition) {
 
-	// We don't have a power slider currently, just set it to 75 which
-	// equals "Better Performance" (using 100 would be more aggressive).
-
-	return compare_condition(condition, 75);
+	return compare_condition(condition, power_slider);
 }
 
 int cthd_engine_adaptive::evaluate_ac_condition(struct condition condition) {
@@ -1122,6 +1156,8 @@ int cthd_engine_adaptive::evaluate_conditions() {
 
 			current_condition_set = i;
 			target = conditions[i][0].target;
+			thd_log_info("Condition Set matched:%d target:%d\n", i, target);
+
 			break;
 		}
 	}
@@ -1351,13 +1387,13 @@ void cthd_engine_adaptive::set_int3400_target(struct adaptive_target target) {
 			cthd_zone *_zone = zones[i];
 
 			// This is only for debug to plot power, so keep
-			if (_zone && _zone->get_zone_type() == "rapl_pkg_power")
+			if (_zone->get_zone_type() == "rapl_pkg_power")
 				continue;
 
 			_zone->zone_reset(1);
 			_zone->trip_delete_all();
 
-			if (_zone && _zone->zone_active_status())
+			if (_zone->zone_active_status())
 				_zone->set_zone_inactive();
 		}
 
@@ -1383,7 +1419,7 @@ void cthd_engine_adaptive::set_int3400_target(struct adaptive_target target) {
 			sysfs.create();
 			exit(EXIT_FAILURE);
 		}
-
+		passive_installed = 1;
 	}
 	if (target.code == "PSV") {
 		set_trip(target.participant, target.argument);
@@ -1394,6 +1430,8 @@ void cthd_engine_adaptive::execute_target(struct adaptive_target target) {
 	cthd_cdev *cdev;
 	std::string name;
 	int argument;
+
+	thd_log_info("Target Name:%s\n", target.name.c_str());
 
 	size_t pos = target.participant.find_last_of(".");
 	if (pos == std::string::npos)
@@ -1447,8 +1485,18 @@ void cthd_engine_adaptive::exec_fallback_target(int target){
 
 void cthd_engine_adaptive::update_engine_state() {
 
-	if (passive_def_only) {
+	if (passive_def_only || !passive_installed) {
 		if (!passive_def_processed) {
+
+			if (!passive_def_only && !passive_installed) {
+				thd_log_warn(
+						"Manufacturer didn't provide adequate support to run in\n");
+				thd_log_warn(
+						"optimized configuration on Linux with open source\n");
+				thd_log_warn(
+						"You may want to disable thermald on this system if you see issue\n");
+			}
+
 			thd_log_info("IETM_D0 processed\n");
 			passive_def_processed = 1;
 
@@ -1477,9 +1525,10 @@ void cthd_engine_adaptive::update_engine_state() {
 				zones[i]->zone_dump();
 			}
 			thd_log_info("\n\n ZONE DUMP END\n");
+			passive_installed = 1;
 		}
-
-		return;
+		if (passive_def_only)
+			return;
 	}
 
 	int target = evaluate_conditions();
@@ -1505,6 +1554,9 @@ int cthd_engine_adaptive::find_agressive_target() {
 	for (int i = 0; i < (int) targets.size(); i++) {
 		int argument;
 
+		if (targets[i].code != "PL1MAX" && targets[i].code != "PL1PowerLimit")
+			continue;
+
 		try {
 			argument = std::stoi(targets[i].argument, NULL);
 		}
@@ -1515,11 +1567,9 @@ int cthd_engine_adaptive::find_agressive_target() {
 		}
 		thd_log_info("target:%s %d\n", targets[i].code.c_str(), argument);
 
-		if (targets[i].code == "PL1MAX") {
-			if (max_pl1_max < argument) {
-				max_pl1_max = argument;
-				max_target_id = i;
-			}
+		if (max_pl1_max < argument) {
+			max_pl1_max = argument;
+			max_target_id = i;
 		}
 	}
 
@@ -1534,34 +1584,70 @@ void cthd_engine_adaptive::setup_input_devices() {
 	struct dirent **namelist;
 	int i, ndev, ret;
 
-	tablet_dev = NULL;
-
 	ndev = scandir("/dev/input", &namelist, is_event_device, versionsort);
 	for (i = 0; i < ndev; i++) {
+		struct libevdev *dev = NULL;
 		char fname[267];
 		int fd = -1;
 
 		snprintf(fname, sizeof(fname), "/dev/input/%s", namelist[i]->d_name);
-		fd = open(fname, O_RDONLY);
+		fd = open(fname, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
 		if (fd < 0)
 			continue;
-		ret = libevdev_new_from_fd(fd, &tablet_dev);
+		ret = libevdev_new_from_fd(fd, &dev);
 		if (ret) {
 			close(fd);
 			continue;
 		}
-		if (libevdev_has_event_code(tablet_dev, EV_SW, SW_TABLET_MODE))
-			return;
-		libevdev_free(tablet_dev);
-		tablet_dev = NULL;
-		close(fd);
+
+		if (!tablet_dev && libevdev_has_event_code(dev, EV_SW, SW_TABLET_MODE))
+			tablet_dev = dev;
+		if (!lid_dev &&  libevdev_has_event_code(dev, EV_SW, SW_LID))
+			lid_dev = dev;
+
+		if (lid_dev != dev && tablet_dev != dev) {
+			libevdev_free(dev);
+			close(fd);
+		}
 	}
 }
 
-int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptive) {
-	char *buf;
+void cthd_engine_adaptive::update_power_slider()
+{
+	g_autoptr(GVariant) active_profile_v = NULL;
+
+	active_profile_v = g_dbus_proxy_get_cached_property (power_profiles_daemon, "ActiveProfile");
+	if (active_profile_v && g_variant_is_of_type (active_profile_v, G_VARIANT_TYPE_STRING)) {
+		const char *active_profile = g_variant_get_string (active_profile_v, NULL);
+
+		if (strcmp (active_profile, "power-saver") == 0)
+			power_slider = 25; /* battery saver */
+		else if (strcmp (active_profile, "balanced") == 0)
+			power_slider = 75; /* better performance */
+		else if (strcmp (active_profile, "performance") == 0)
+			power_slider = 100; /* best performance */
+		else
+			power_slider = 75;
+	} else {
+		power_slider = 75;
+	}
+
+	thd_log_info("Power slider is now set to %d\n", power_slider);
+}
+
+static void power_profiles_changed_cb(cthd_engine_adaptive *engine)
+{
+	engine->update_power_slider();
+}
+
+int cthd_engine_adaptive::thd_engine_init(bool ignore_cpuid_check, bool adaptive) {
 	csys_fs sysfs("");
+	char *buf;
 	size_t size;
+	int res;
+
+	parser_disabled = true;
+	force_mmio_rapl = true;
 
 	if (!ignore_cpuid_check) {
 		check_cpu_id();
@@ -1576,9 +1662,6 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 		return THD_ERROR;
 	}
 
-	parser_disabled = true;
-	force_mmio_rapl = true;
-
 	if (sysfs.exists("/sys/bus/platform/devices/INT3400:00")) {
 		int3400_base_path = "/sys/bus/platform/devices/INT3400:00/";
 	} else if (sysfs.exists("/sys/bus/platform/devices/INTC1040:00")) {
@@ -1588,6 +1671,12 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 	} else {
 		return THD_ERROR;
 	}
+
+	/* Read the sensors/zones */
+	res = cthd_engine::thd_engine_init(ignore_cpuid_check, adaptive);
+	if (res != THD_SUCCESS)
+		return res;
+
 
 	if (sysfs.read(int3400_base_path + "firmware_node/path",
 			int3400_path) < 0) {
@@ -1627,6 +1716,8 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 		dump_psvt();
 		dump_apat();
 		dump_apct();
+
+		delete [] buf;
 	} catch (std::exception &e) {
 		thd_log_warn("%s\n", e.what());
 		delete [] buf;
@@ -1642,8 +1733,17 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 			thd_log_info("IETM.D0 found\n");
 			passive_def_only = 1;
 		}
-		return cthd_engine::thd_engine_start(ignore_cpuid_check);
+		return THD_SUCCESS;
 	}
+
+	return THD_SUCCESS;
+}
+
+int cthd_engine_adaptive::thd_engine_start() {
+	g_autoptr(GDBusConnection) bus = NULL;
+
+	if (passive_def_only)
+		return cthd_engine::thd_engine_start();
 
 	setup_input_devices();
 
@@ -1659,10 +1759,7 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 			thd_log_info("Also unable to evaluate any conditions\n");
 			thd_log_info("Falling back to use configuration with the highest power\n");
 
-			if (tablet_dev)
-				libevdev_free(tablet_dev);
-
-			// Looks like there is no free call for up_client_new()
+			destroy_dynamic_sources();
 
 			int i = find_agressive_target();
 			thd_log_info("target:%d\n", i);
@@ -1670,7 +1767,6 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 				thd_log_info("fallback id:%d\n", i);
 				fallback_id = i;
 			} else {
-				delete[] buf;
 				return THD_ERROR;
 			}
 		}
@@ -1678,20 +1774,53 @@ int cthd_engine_adaptive::thd_engine_start(bool ignore_cpuid_check, bool adaptiv
 
 	set_control_mode(EXCLUSIVE);
 
-	evaluate_conditions();
-	thd_log_info("adaptive engine reached end");
+	bus = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, NULL);
+	if (bus) {
+		power_profiles_daemon = g_dbus_proxy_new_sync (bus,
+							       G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
+							       NULL,
+							       "net.hadess.PowerProfiles",
+							       "/net/hadess/PowerProfiles",
+							       "net.hadess.PowerProfiles",
+							       NULL,
+							       NULL);
 
-	return cthd_engine::thd_engine_start(ignore_cpuid_check, adaptive);
+		if (power_profiles_daemon) {
+			g_signal_connect_swapped (power_profiles_daemon,
+						  "g-properties-changed",
+						  (GCallback) power_profiles_changed_cb,
+						  this);
+			power_profiles_changed_cb(this);
+		} else {
+			thd_log_info("Could not setup DBus watch for power-profiles-daemon");
+		}
+	}
+
+	evaluate_conditions();
+	thd_log_info("adaptive engine reached end\n");
+
+	return cthd_engine::thd_engine_start();
 }
 
-int thd_engine_create_adaptive_engine(bool ignore_cpuid_check) {
+int thd_engine_create_adaptive_engine(bool ignore_cpuid_check, bool test_mode) {
 	thd_engine = new cthd_engine_adaptive();
 
 	thd_engine->set_poll_interval(thd_poll_interval);
 
 	// Initialize thermald objects
-	if (thd_engine->thd_engine_start(ignore_cpuid_check, true) != THD_SUCCESS) {
+	if (thd_engine->thd_engine_init(ignore_cpuid_check, true) != THD_SUCCESS) {
+		thd_log_info("THD engine init failed\n");
+		return THD_ERROR;
+	}
+
+	if (thd_engine->thd_engine_start() != THD_SUCCESS) {
 		thd_log_info("THD engine start failed\n");
+		if (test_mode) {
+			thd_log_warn("This platform doesn't support adaptive mode\n");
+			thd_log_warn("It is possible that manufacturer doesn't support DPTF tables or\n");
+			thd_log_warn("didn't provide tables, which can be parsed in open source.\n");
+			exit(0);
+		}
 		return THD_ERROR;
 	}
 

@@ -129,6 +129,7 @@ struct condition {
 	int target;
 	int state;
 	int state_entry_time;
+	int ignore_condition;
 };
 
 struct custom_condition {
@@ -153,14 +154,20 @@ protected:
 	std::vector<struct psvt> psvts;
 	std::string int3400_path;
 	UpClient *upower_client;
+	GDBusProxy *power_profiles_daemon;
 	struct libevdev *tablet_dev;
+	struct libevdev *lid_dev;
 	int current_condition_set;
 	int policy_active;
 	int fallback_id;
 	std::string int3400_base_path;
 	int passive_def_only;
 	int passive_def_processed;
+	int passive_installed;
 
+	int power_slider;
+
+	void destroy_dynamic_sources();
 	int get_type(char *object, int *offset);
 	uint64_t get_uint64(char *object, int *offset);
 	char* get_string(char *object, int *offset);
@@ -209,14 +216,16 @@ public:
 			cthd_engine_default("63BE270F-1C11-48FD-A6F7-3AF253FF3E2D"), upower_client(
 			NULL), tablet_dev(NULL), current_condition_set(0xffff), policy_active(
 					0), fallback_id(-1), int3400_base_path(""), passive_def_only(
-					0), passive_def_processed(0) {
+					0), passive_def_processed(0), passive_installed(0), power_slider(75) {
 	}
 
 	~cthd_engine_adaptive();
 	ppcc_t* get_ppcc_param(std::string name);
-	int thd_engine_start(bool ignore_cpuid_check, bool adaptive);
+	int thd_engine_init(bool ignore_cpuid_check, bool adaptive);
+	int thd_engine_start();
 	void update_engine_state();
+	void update_power_slider();
 };
 
-int thd_engine_create_adaptive_engine(bool ignore_cpuid_check);
+int thd_engine_create_adaptive_engine(bool ignore_cpuid_check, bool test_mode);
 #endif /* THD_ENGINE_ADAPTIVE_H_ */
