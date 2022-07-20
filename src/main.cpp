@@ -37,8 +37,8 @@
  * if the thermal-conf.xml defines parameters.
  */
 
+#include <glib-unix.h>
 #include <syslog.h>
-#include <signal.h>
 #include "thermald.h"
 #include "thd_preference.h"
 #include "thd_engine.h"
@@ -53,7 +53,7 @@
 
 #define EXIT_UNSUPPORTED 2
 
-extern int thd_dbus_server_init(void (*exit_handler)(int));
+extern int thd_dbus_server_init(gboolean (*exit_handler)(void));
 
 // Lock file
 static int lock_file_handle = -1;
@@ -159,7 +159,7 @@ bool check_thermald_running() {
 }
 
 // SIGTERM & SIGINT handler
-void sig_int_handler(int signum) {
+gboolean sig_int_handler(void) {
 	if (thd_engine)
 		thd_engine->thd_engine_terminate();
 	sleep(1);
@@ -168,6 +168,8 @@ void sig_int_handler(int signum) {
 	delete thd_engine;
 	clean_up_lockfile();
 	exit(EXIT_SUCCESS);
+
+	return FALSE;
 }
 
 // main function
@@ -252,8 +254,12 @@ int main(int argc, char *argv[]) {
 
 	g_option_context_set_summary(opt_ctx,
 
-	"Thermal daemon monitors temperature sensors and decides the best action "
-			"based on the temperature readings and user preferences.");
+	"Thermal daemon monitors temperature sensors and decides the best action\n"
+			"based on the temperature readings and user preferences.\n\n"
+	"Copyright (c) 2022, Intel Corporation\n"
+	"This program comes with ABSOLUTELY NO WARRANTY.\n"
+	"This work is licensed under GPL v2.\n"
+	"Refer to https://github.com/intel/thermal_daemon/blob/master/COPYING.");
 
 	success = g_option_context_parse(opt_ctx, &argc, &argv, NULL);
 	g_option_context_free(opt_ctx);
@@ -307,8 +313,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (!thd_daemonize) {
-		signal(SIGINT, sig_int_handler);
-		signal(SIGTERM, sig_int_handler);
+		g_unix_signal_add (SIGINT, G_SOURCE_FUNC (sig_int_handler), NULL);
+		g_unix_signal_add (SIGTERM, G_SOURCE_FUNC (sig_int_handler), NULL);
 	}
 
 	// Initialize the GType/GObject system
