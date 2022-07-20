@@ -711,6 +711,8 @@ static supported_ids_t id_table[] = {
 		{ 6, 0x9c }, // Jasper Lake
 		{ 6, 0x97 }, // Alderlake
 		{ 6, 0x9a }, // Alderlake
+		{ 6, 0xb7 }, // Raptorlake
+		{ 6, 0xba }, // Raptorlake
 		{ 0, 0 } // Last Invalid entry
 };
 
@@ -1284,3 +1286,15 @@ void cthd_engine::parser_deinit() {
 		parser_init_done = false;
 	}
 }
+
+int cthd_engine::debug_mode_on(void) {
+	static const char *debug_mode = TDRUNDIR
+	"/debug_mode";
+	struct stat s;
+
+	if (stat(debug_mode, &s))
+		return 0;
+
+	return 1;
+}
+

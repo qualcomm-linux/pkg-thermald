@@ -22,6 +22,7 @@
  *
  */
 
+#include <cstring>
 #include <dirent.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -79,22 +80,10 @@ static cooling_dev_t cpu_def_cooling_devices[] = {
 cthd_engine_default::~cthd_engine_default() {
 }
 
-int cthd_engine_default::debug_mode_on(void) {
-	static const char *debug_mode = TDRUNDIR
-	"/debug_mode";
-	struct stat s;
-
-	if (stat(debug_mode, &s))
-		return 0;
-
-	return 1;
-}
-
 int cthd_engine_default::read_thermal_sensors() {
 	int index;
 	DIR *dir;
 	struct dirent *entry;
-	int sensor_mask = 0x0f;
 	cthd_sensor *sensor;
 	const std::string base_path[] = { "/sys/devices/platform/",
 			"/sys/class/hwmon/" };
@@ -147,22 +136,30 @@ int cthd_engine_default::read_thermal_sensors() {
 					if (name != "coretemp")
 						continue;
 
-					int cnt = 0;
-					unsigned int mask = 0x1;
-					do {
-						if (sensor_mask & mask) {
-							std::stringstream temp_input_str;
-							std::string path = base_path[i] + entry->d_name
-									+ "/";
-							csys_fs dts_sysfs(path.c_str());
-							temp_input_str << "temp" << cnt << "_input";
-							if (dts_sysfs.exists(temp_input_str.str())) {
+					std::string temp_dir_path = base_path[i] + entry->d_name
+							+ "/";
+					DIR *temp_dir = nullptr;
+					struct dirent *temp_dir_entry = nullptr;
+					int len_temp_dir_entry = 0;
+					int len_input = strlen("_input");
+
+					if ((temp_dir = opendir(temp_dir_path.c_str())) != NULL) {
+						while ((temp_dir_entry = readdir(temp_dir)) != NULL) {
+							len_temp_dir_entry = strlen(temp_dir_entry->d_name);
+							if ((len_temp_dir_entry >= len_input
+									&& !strcmp(
+											temp_dir_entry->d_name
+													+ len_temp_dir_entry
+													- len_input, "_input"))
+									&& (!strncmp(temp_dir_entry->d_name, "temp",
+											strlen("temp")))) {
+
 								cthd_sensor *sensor = new cthd_sensor(index,
-										base_path[i] + entry->d_name + "/"
-												+ temp_input_str.str(), "hwmon",
-										SENSOR_TYPE_RAW);
+										temp_dir_path + temp_dir_entry->d_name,
+										"hwmon", SENSOR_TYPE_RAW);
 								if (sensor->sensor_update() != THD_SUCCESS) {
 									delete sensor;
+									closedir(temp_dir);
 									closedir(dir);
 									return THD_ERROR;
 								}
@@ -170,9 +167,8 @@ int cthd_engine_default::read_thermal_sensors() {
 								++index;
 							}
 						}
-						mask = (mask << 1);
-						cnt++;
-					} while (mask != 0);
+						closedir(temp_dir);
+					}
 				}
 			}
 			closedir(dir);
@@ -980,29 +976,9 @@ void cthd_engine_default::workaround_tcc_offset(void)
 			tcc_offset_checked = 1;
 		}
 	} else {
-		csys_fs msr_sysfs;
-		int ret;
-
-		if(msr_sysfs.exists("/dev/cpu/0/msr")) {
-			unsigned long long val = 0;
-
-			ret = msr_sysfs.read("/dev/cpu/0/msr", 0x1a2, (char *)&val, sizeof(val));
-			if (ret > 0) {
-				int tcc;
-
-				tcc = (val >> 24) & 0xff;
-				if (tcc > 10) {
-					val &= ~(0xff << 24);
-					val |= (0x05 << 24);
-					msr_sysfs.write("/dev/cpu/0/msr", 0x1a2, val);
-					tcc_offset_checked = 1;
-				} else {
-					if (!tcc_offset_checked)
-						tcc_offset_low = 1;
-					tcc_offset_checked = 1;
-				}
-			}
-		}
+		thd_log_info("Kernel update is required to update TCC\n");
+		tcc_offset_checked = 1;
+		tcc_offset_low = 1;
 	}
 #endif
 }

@@ -27,7 +27,7 @@
 #define SAMPLE_STORE_SIZE 100
 #define DEFAULT_LOGFILE_NAME "log.txt"
 #define CUSTOMPLOT_YAXIS_RANGE 120
-#define VERSION_NUMBER "1.2"
+#define VERSION_NUMBER "1.3"
 
 MainWindow::MainWindow(ThermaldInterface *thermaldInterface) : QMainWindow(),
     temp_samples(SAMPLE_STORE_SIZE),
@@ -116,6 +116,9 @@ void MainWindow::setupPlotWidget()
     currentTempsensorIndex = 0;
     int active_zone = 0;
     for (uint zone = 0; zone < m_thermaldInterface->getZoneCount(); zone++) {
+        // Trips is indexed by zone. We need to make sure there is a tips item
+        // (even if empty) for each zone.
+        trips.append(QVector<QCPItemLine *>());
 
         zoneInformationType *zone_info = m_thermaldInterface->getZone(zone);
         if (!zone_info)
@@ -180,7 +183,7 @@ void MainWindow::setupPlotWidget()
                 }
                 these_trips.append(line);
             }
-            trips.append(these_trips);
+            trips.last().swap(these_trips);
         }
     }
 
@@ -488,7 +491,10 @@ void MainWindow::showAboutDialog()
     QString str;
     str = QString("<h3>Thermal Monitor %1</h3>"
                   "<p>GUI for Linux thermal daemon (thermald)</p>"
-                  "<p>Copyright (c) 2020, Intel Corporation</p>")
+                  "<p>Copyright (c) 2022, Intel Corporation</p>"
+                  "<p>This program comes with ABSOLUTELY NO WARRANTY</p>"
+                  "<p>This work is licensed under GPL v3</p>"
+                  "<p>Refer to https://www.gnu.org/licenses/gpl-3.0.txt</p>")
             .arg(QString(VERSION_NUMBER));
     QMessageBox::about(this, "About Thermal Monitor", str);
 }
