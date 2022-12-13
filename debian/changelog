@@ -1,3 +1,11 @@
+thermald (2.5.1-2) unstable; urgency=medium
+
+  * Add Alderlake N in the supported CPU model list
+   - upstream patch 0001-Add-AlderLake-N.patch
+  * debian/control: update standards version to 4.6.1
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Tue, 13 Dec 2022 14:31:23 +0100
+
 thermald (2.5.1-1) unstable; urgency=medium
 
   * sync to thermald 2.5.1
