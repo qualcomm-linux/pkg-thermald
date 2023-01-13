@@ -1,1 +1,3 @@
 0001-Add-AlderLake-N.patch
+0002-Added-ReadBack-and-DebouncePeriod-to-dump.patch
+0003-Parser-PID-Parameter-initialize.patch

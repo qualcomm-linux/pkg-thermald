@@ -1,3 +1,13 @@
+thermald (2.5.1-3) unstable; urgency=medium
+
+  * Pull in 2 upstream commits, minor dump improvement and a parse pid fix:
+   - Added ReadBack and DebouncePeriod to dump
+     upstream patch 0002-Added-ReadBack-and-DebouncePeriod-to-dump.patch
+   - Parser PID Parameter initialize
+     upstream patch 0003-Parser-PID-Parameter-initialize.patch
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Fri, 13 Jan 2023 14:55:11 +0000
+
 thermald (2.5.1-2) unstable; urgency=medium
 
   * Add Alderlake N in the supported CPU model list
