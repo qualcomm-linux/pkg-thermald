@@ -613,6 +613,11 @@ int cthd_gddv::parse_itmt(char *name, char *buf, int len) {
 
 	thd_log_debug(" ITMT version %d %s\n", (int) version, name);
 
+	if (version > 2) {
+		thd_log_info("Unsupported ITMT version\n");
+		return THD_ERROR;
+	}
+
 	if (name == NULL)
 		itmt.name = "Default";
 	else
@@ -626,7 +631,20 @@ int cthd_gddv::parse_itmt(char *name, char *buf, int len) {
 		itmt_entry.pl1_min = get_string(buf, &offset);
 		itmt_entry.pl1_max = get_string(buf, &offset);
 		itmt_entry.unused = get_string(buf, &offset);
-		offset += 12;
+		if (version == 2) {
+			// Ref DPTF/Sources/Manager/DataManager.cpp DataManager::loadItmtTableObject()
+			std::string dummy_str;
+			unsigned long long dummy1,dummy2, dummy3;
+
+			// There are three additional fields
+			dummy1 = get_uint64(buf, &offset);
+			dummy_str = get_string(buf, &offset);
+			dummy2 = get_uint64(buf, &offset);
+			dummy3 = get_uint64(buf, &offset);
+			thd_log_debug("ignore dummy_str:%s %llu %llu %llu\n", dummy_str.c_str(), dummy1, dummy2, dummy3);
+		} else {
+			offset += 12;
+		}
 
 		itmt.itmt_entries.push_back(itmt_entry);
 	}
@@ -660,7 +678,7 @@ void cthd_gddv::parse_idsp(char *name, char *start, int length) {
 		char idsp[64];
 		std::string idsp_str;
 
-		// The minimum length for a IDSP should be atleast 28
+		// The minimum length for a IDSP should be at least 28
 		// including headers and values
 		if ((length - i) < 28)
 			return;
