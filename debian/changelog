@@ -1,3 +1,9 @@
+thermald (2.5.3-1) unstable; urgency=medium
+
+  * sync to thermald 2.5.3
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Tue, 11 Jul 2023 15:19:17 +0100
+
 thermald (2.5.2-1) unstable; urgency=medium
 
   * sync to thermald 2.5.2
