@@ -4,9 +4,9 @@ Release:        1%{?dist}
 Summary:        The "Linux Thermal Daemon" program from 01.org
 
 License:        GPLv2+
-URL:            https://github.com/01org/thermal_daemon
+URL:            https://github.com/intel/thermal_daemon
 %global         pkgname thermal_daemon
-Source0:        https://github.com/01org/thermal_daemon/archive/v%{version}.tar.gz
+Source0:        https://github.com/intel/thermal_daemon/archive/v%{version}.tar.gz
 
 BuildRequires:    automake
 BuildRequires:    autoconf
@@ -46,7 +46,7 @@ make %{?_smp_mflags}
 
 %files
 %{_sbindir}/thermald
-%config(noreplace) %{_sysconfdir}/dbus-1/system.d/org.freedesktop.thermald.conf
+%{_datadir}/dbus-1/system.d/org.freedesktop.thermald.conf
 %{_datadir}/dbus-1/system-services/org.freedesktop.thermald.service
 %config(noreplace) %{_sysconfdir}/thermald/thermal-conf.xml
 %config(noreplace) %{_sysconfdir}/thermald/thermal-cpu-cdev-order.xml

@@ -26,7 +26,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
+#ifndef ANDROID
 #include <lzma.h>
+#else
+#include "thd_lzma_dec.h"
+#endif
 #include <linux/input.h>
 #include <sys/types.h>
 #include "thd_gddv.h"
@@ -67,6 +71,7 @@ class _gddv_exception: public std::exception {
 } gddv_exception;
 
 void cthd_gddv::destroy_dynamic_sources() {
+#ifndef ANDROID
 	if (upower_client)
 		g_clear_object(&upower_client);
 
@@ -88,6 +93,8 @@ void cthd_gddv::destroy_dynamic_sources() {
 
 		lid_dev = NULL;
 	}
+#endif
+
 }
 
 cthd_gddv::~cthd_gddv() {
@@ -198,9 +205,6 @@ int cthd_gddv::parse_apat(char *apat, int len) {
 
 	while (offset < len) {
 		struct adaptive_target target;
-
-		if (offset >= len)
-			return THD_ERROR;
 
 		target.target_id = get_uint64(apat, &offset);
 		target.name = get_string(apat, &offset);
@@ -678,7 +682,7 @@ void cthd_gddv::parse_idsp(char *name, char *start, int length) {
 		char idsp[64];
 		std::string idsp_str;
 
-		// The minimum length for a IDSP should be at least 28
+		// The minimum length for an IDSP should be at least 28
 		// including headers and values
 		if ((length - i) < 28)
 			return;
@@ -808,6 +812,52 @@ int cthd_gddv::parse_trt(char *buf, int len)
 #define ESIFDV_HEADER_SIGNATURE			0x1FE5
 #define ESIFDV_ITEM_KEYS_REV0_SIGNATURE	0xA0D8
 
+
+#ifdef ANDROID
+
+int cthd_gddv::handle_compressed_gddv(char *buf, int size) {
+	struct header *header = (struct header*) buf;
+	uint64_t payload_output_size;
+	uint64_t output_size;
+	int res;
+	unsigned char *decompressed;
+	size_t destlen=0;
+
+	payload_output_size = *(uint64_t*) (buf + header->headersize + 5);
+	output_size = header->headersize + payload_output_size;
+	decompressed = (unsigned char*) malloc(output_size);
+
+	if (!decompressed) {
+		thd_log_warn("Failed to allocate buffer for decompressed output\n");
+		throw gddv_exception;
+	}
+
+	res=lzma_decompress(NULL,&destlen, (const unsigned char*) (buf + header->headersize), size-header->headersize);
+
+	thd_log_debug("decompress result =%d\n",res);
+
+	res=lzma_decompress(( unsigned char*)(decompressed+ header->headersize),
+	                &destlen,
+	                (const unsigned char*) (buf + header->headersize),
+	                size-header->headersize);
+
+	thd_log_debug("decompress result =%d\n",res);
+
+	/* Copy and update header.
+	 * This will contain one or more nested repositories usually. */
+	memcpy (decompressed, buf, header->headersize);
+	header = (struct header*) decompressed;
+	header->v2.flags &= ~ESIF_SERVICE_CONFIG_COMPRESSED;
+	header->v2.payload_size = payload_output_size;
+
+	res = parse_gddv((char*) decompressed, output_size, NULL);
+	free(decompressed);
+
+	return res;
+}
+
+#else
+
 int cthd_gddv::handle_compressed_gddv(char *buf, int size) {
 	struct header *header = (struct header*) buf;
 	uint64_t payload_output_size;
@@ -855,6 +905,8 @@ int cthd_gddv::handle_compressed_gddv(char *buf, int size) {
 
 	return res;
 }
+
+#endif
 
 int cthd_gddv::parse_gddv_key(char *buf, int size, int *end_offset) {
 	int offset = 0;
@@ -1054,10 +1106,12 @@ int cthd_gddv::verify_condition(struct condition condition) {
 			|| condition.condition == (adaptive_condition) 0) {
 		return 0;
 	}
+#ifndef ANDROID
 	if (condition.condition == Lid_state && lid_dev != NULL)
 		return 0;
 	if (condition.condition == Power_source && upower_client != NULL)
 		return 0;
+#endif
 	if (condition.condition == Workload)
 		return 0;
 	if (condition.condition == Platform_type)
@@ -1218,6 +1272,13 @@ int cthd_gddv::evaluate_temperature_condition(
 	return compare_condition(condition, value);
 }
 
+#ifdef ANDROID
+int cthd_gddv::evaluate_lid_condition(struct condition condition) {
+        int value = 1;
+
+        return compare_condition(condition, value);
+}
+#else
 int cthd_gddv::evaluate_lid_condition(struct condition condition) {
 	int value = 0;
 
@@ -1232,6 +1293,7 @@ int cthd_gddv::evaluate_lid_condition(struct condition condition) {
 	}
 	return compare_condition(condition, value);
 }
+#endif
 
 int cthd_gddv::evaluate_workload_condition(
 		struct condition condition) {
@@ -1241,6 +1303,20 @@ int cthd_gddv::evaluate_workload_condition(
 	return compare_condition(condition, 3);
 }
 
+#ifdef ANDROID
+/*
+ * Platform Type
+ * Clamshell(1)
+ * Tablet(2)
+ * Other/Invalid(0)
+ * */
+int cthd_gddv::evaluate_platform_type_condition(
+                struct condition condition) {
+        int value = 2;//Tablet
+
+        return compare_condition(condition, value);
+}
+#else
 int cthd_gddv::evaluate_platform_type_condition(
 		struct condition condition) {
 	int value = 1;
@@ -1258,6 +1334,7 @@ int cthd_gddv::evaluate_platform_type_condition(
 	}
 	return compare_condition(condition, value);
 }
+#endif
 
 int cthd_gddv::evaluate_power_slider_condition(
 		struct condition condition) {
@@ -1265,6 +1342,33 @@ int cthd_gddv::evaluate_power_slider_condition(
 	return compare_condition(condition, power_slider);
 }
 
+#ifdef ANDROID
+/*
+ *Power Source
+ AC(0)
+ DC(1)
+ Short Term DC(2)
+ * */
+int cthd_gddv::evaluate_ac_condition(struct condition condition) {
+        csys_fs cdev_sysfs("/sys/class/power_supply/AC/online");
+        std::string buffer;
+        int status = 0;
+        int value = 0;
+
+        thd_log_debug("evaluate evaluate_ac_condition %" PRIu64 "\n", condition.condition);
+        if (cdev_sysfs.exists("")) {
+                        cdev_sysfs.read("", buffer);
+                        std::istringstream(buffer) >> status;
+        thd_log_debug("evaluate found battery sys status=%d\n",status);
+        }
+        if (status!=1) {
+                value = 1;
+        }
+
+        thd_log_debug("evaluate found battery sys value=%d\n",value);
+        return compare_condition(condition, value);
+}
+#else
 int cthd_gddv::evaluate_ac_condition(struct condition condition) {
 	int value = 0;
 	bool on_battery = up_client_get_on_battery(upower_client);
@@ -1274,6 +1378,7 @@ int cthd_gddv::evaluate_ac_condition(struct condition condition) {
 
 	return compare_condition(condition, value);
 }
+#endif
 
 int cthd_gddv::evaluate_condition(struct condition condition) {
 	int ret = THD_ERROR;
@@ -1342,18 +1447,14 @@ int cthd_gddv::evaluate_condition_set(
 	return THD_SUCCESS;
 }
 
-int cthd_gddv::evaluate_conditions(int policy_active) {
+int cthd_gddv::evaluate_conditions() {
 	int target = -1;
 
 	for (int i = 0; i < (int) conditions.size(); i++) {
 		thd_log_debug("evaluate condition set %d\n", i);
 		if (evaluate_condition_set(conditions[i]) == THD_SUCCESS) {
-			 if (policy_active && i == current_condition_set)
-			                         break;
-
-			current_condition_set = i;
 			target = conditions[i][0].target;
-			thd_log_info("Condition Set matched:%d target:%d\n", i, target);
+			thd_log_debug("Condition Set matched:%d target:%d\n", i, target);
 
 			break;
 		}
@@ -1410,6 +1511,7 @@ int cthd_gddv::find_agressive_target() {
 	return max_target_id;
 }
 
+#ifndef ANDROID
 void cthd_gddv::update_power_slider()
 {
 	g_autoptr(GVariant) active_profile_v = NULL;
@@ -1437,7 +1539,9 @@ static void power_profiles_changed_cb(cthd_gddv *gddv)
 {
 	gddv->update_power_slider();
 }
+#endif
 
+#ifndef ANDROID
 static int is_event_device(const struct dirent *dir) {
 	return strncmp("event", dir->d_name, 5) == 0;
 }
@@ -1473,6 +1577,7 @@ void cthd_gddv::setup_input_devices() {
 		}
 	}
 }
+#endif
 
 int cthd_gddv::gddv_init(void) {
 	csys_fs sysfs("");
@@ -1542,6 +1647,7 @@ int cthd_gddv::gddv_init(void) {
 		return THD_FATAL_ERROR;
 	}
 
+#ifndef ANDROID
 	setup_input_devices();
 
 	upower_client = up_client_new();
@@ -1573,6 +1679,7 @@ int cthd_gddv::gddv_init(void) {
 			thd_log_info("Could not setup DBus watch for power-profiles-daemon");
 		}
 	}
+#endif
 
 	return THD_SUCCESS;
 }

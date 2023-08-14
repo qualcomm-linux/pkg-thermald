@@ -1,7 +1,7 @@
 AC_PREREQ(1.0)
 
 m4_define([td_major_version], [2])
-m4_define([td_minor_version], [5.3])
+m4_define([td_minor_version], [5.4])
 m4_define([td_version],
           [td_major_version.td_minor_version])
 
@@ -21,9 +21,17 @@ AC_ARG_WITH(dbus-sys-dir, AS_HELP_STRING([--with-dbus-sys-dir=DIR], [where D-BUS
 if test -n "$with_dbus_sys_dir" ; then
     DBUS_SYS_DIR="$with_dbus_sys_dir"
 else
-    DBUS_SYS_DIR="/etc/dbus-1/system.d"
+    DBUS_SYS_DIR="/usr/share/dbus-1/system.d"
 fi
 AC_SUBST(DBUS_SYS_DIR)
+
+AC_ARG_WITH(dbus-power-group, AS_HELP_STRING([--with-dbus-power-group=GROUP], [group that is allowed to connect to D-BUS service]))
+if test -n "$with_dbus_power_group" ; then
+    DBUS_POWER_GROUP="$with_dbus_power_group"
+else
+    DBUS_POWER_GROUP="power"
+fi
+AC_SUBST(DBUS_POWER_GROUP)
 
 # paths
 AC_SUBST(tdbinary, "$sbindir/$PACKAGE", [Binary executable])

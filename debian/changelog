@@ -1,3 +1,13 @@
+thermald (2.5.4-1) unstable; urgency=mediumA
+
+  * sync to thermald 2.5.4
+  * Fix fails to build source after successful build (Closes: #1045564)
+  * Update standards version to 4.6.2
+  * Add watch file
+  * Update copyright years
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Mon, 14 Aug 2023 08:59:24 +0100
+
 thermald (2.5.3-1) unstable; urgency=medium
 
   * sync to thermald 2.5.3
