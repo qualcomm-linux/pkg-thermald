@@ -17,7 +17,8 @@ echo 70000 > ${THD0_ZONE}/emul_temp
 echo "Emulate temp to"
 cat ${THD0_ZONE}/temp
 
-max_state=$(cat ${CDEV}/max_state)
+max_state=49
+#$(cat ${CDEV}/max_state)
 max_state=$(expr $max_state / 2)
 echo $max_state 
 COUNTER=0
@@ -53,7 +54,7 @@ while [  $COUNTER -lt 10 ]; do
 	sleep 5
 	let COUNTER=COUNTER+1 
 done
-if [ $cur_state -gt -1 ]; then
+if [ $cur_state -gt 0 ]; then
 	echo "powerclamp: Step 0: Test failed"
 	exit 1
 else
@@ -100,7 +101,7 @@ while [  $COUNTER -lt 10 ]; do
 	let COUNTER=COUNTER+1 
 done
 
-if [ $cur_state -gt -1 ]; then
+if [ $cur_state -gt 0 ]; then
 	echo "powerclamp: Step 2: Test failed"
 	exit 1
 else

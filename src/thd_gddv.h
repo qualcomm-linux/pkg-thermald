@@ -26,8 +26,10 @@
 #ifndef THD_GDDV_H_
 #define THD_GDDV_H_
 
+#ifndef ANDROID
 #include <libevdev/libevdev.h>
 #include <upower.h>
+#endif
 
 #include "thd_engine.h"
 #include "thd_trt_art_reader.h"
@@ -182,13 +184,14 @@ private:
 	std::vector<std::string> idsps;
 	std::vector<struct trippoint> trippoints;
 	std::string int3400_path;
+#ifndef ANDROID
 	UpClient *upower_client;
 	GDBusProxy *power_profiles_daemon;
 	struct libevdev *tablet_dev;
 	struct libevdev *lid_dev;
+#endif
 	std::string int3400_base_path;
 	int power_slider;
-	int current_condition_set;
 
 	void destroy_dynamic_sources();
 	int get_type(char *object, int *offset);
@@ -229,16 +232,23 @@ private:
 	void dump_itmt();
 	void dump_idsps();
 	void dump_trips();
+#ifndef ANDROID
 	void setup_input_devices();
+#endif
 	int get_trip_temp(std::string name, trip_point_type_t type);
 
 public:
+#ifndef ANDROID
 	cthd_gddv() :
 			upower_client(
-			NULL), power_profiles_daemon(NULL), tablet_dev(NULL), lid_dev(NULL), int3400_base_path(""), power_slider(75), current_condition_set(
-					0xffff) {
+			NULL), power_profiles_daemon(NULL), tablet_dev(NULL), lid_dev(NULL), int3400_base_path(""), power_slider(75) {
+	}
+#else
+	cthd_gddv() :
+			int3400_base_path(""), current_condition_set(0xffff) {
 	}
 
+#endif
 	~cthd_gddv();
 
 	std::vector<std::vector<struct condition>> conditions;
@@ -248,7 +258,7 @@ public:
 	int gddv_init(void);
 	void gddv_free(void);
 	int verify_conditions();
-	int evaluate_conditions(int policy_active);
+	int evaluate_conditions();
 	void update_power_slider();
 	int find_agressive_target();
 	struct psvt* find_psvt(std::string name);

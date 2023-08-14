@@ -26,8 +26,10 @@
 #ifndef THD_ENGINE_ADAPTIVE_H_
 #define THD_ENGINE_ADAPTIVE_H_
 
+#ifndef ANDROID
 #include <libevdev/libevdev.h>
 #include <upower.h>
+#endif
 
 #include "thd_engine_default.h"
 #include "thd_cpu_default_binding.h"
@@ -36,16 +38,15 @@
 
 class cthd_engine_adaptive: public cthd_engine_default {
 protected:
-
 	int policy_active;
 	int fallback_id;
 	std::string int3400_path;
 	std::string int3400_base_path;
 	int passive_def_only;
 	int passive_def_processed;
-	int passive_installed;
 	int power_slider;
 	int int3400_installed;
+	int current_matched_target;
 
 	int set_itmt_target(struct adaptive_target target);
 	int install_passive(struct psv *psv);
@@ -58,12 +59,20 @@ protected:
 	void install_passive_default();
 
 public:
+#ifndef ANDROID
 	cthd_engine_adaptive() :
 			cthd_engine_default("63BE270F-1C11-48FD-A6F7-3AF253FF3E2D"), policy_active(
 					0), fallback_id(-1), int3400_path(""), int3400_base_path(
-					""), passive_def_only(0), passive_def_processed(0), passive_installed(
-					0), power_slider(75), int3400_installed(0) {
+					""), passive_def_only(0), passive_def_processed(0),
+					power_slider(75), int3400_installed(0), current_matched_target(-1) {
 	}
+#else
+	cthd_engine_adaptive() :
+			cthd_engine_default("63BE270F-1C11-48FD-A6F7-3AF253FF3E2D"), policy_active(
+					0), fallback_id(-1), int3400_base_path(""), passive_def_only(
+					0), passive_def_processed(0) {
+	}
+#endif
 
 	~cthd_engine_adaptive() {
 	}
