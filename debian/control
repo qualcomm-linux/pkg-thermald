@@ -16,8 +16,8 @@ Build-Depends: debhelper (>= 13),
                libglib2.0-dev,
                libdbus-1-dev,
                libdbus-glib-1-dev,
-               libxml2-dev,
-Homepage: https://01.org/linux-thermal-daemon
+               libxml2-dev
+Homepage: https://github.com/intel/thermal_daemon
 
 Package: thermald
 Architecture: i386 amd64

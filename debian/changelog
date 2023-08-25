@@ -1,4 +1,12 @@
-thermald (2.5.4-1) unstable; urgency=mediumA
+thermald (2.5.4-2) unstable; urgency=medium
+
+  * Fix homepage URL (Closes: #1050484)
+  * Add debian/conffiles, remove ancient /etc/init/thermald.conf
+    on update (Closes: #911744)
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Fri, 25 Aug 2023 11:29:11 +0100
+
+thermald (2.5.4-1) unstable; urgency=medium
 
   * sync to thermald 2.5.4
   * Fix fails to build source after successful build (Closes: #1045564)

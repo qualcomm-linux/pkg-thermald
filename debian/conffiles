@@ -1,0 +1,2 @@
+/etc/thermald/thermal-cpu-cdev-order.xml
+remove-on-upgrade /etc/init/thermald.conf
