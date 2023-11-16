@@ -1,3 +1,9 @@
+thermald (2.5.4-3) unstable; urgency=medium
+
+  * Fix debian/watch, replace thermal-daemon with thermal_deamon
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Thu, 16 Nov 2023 16:00:02 +0000
+
 thermald (2.5.4-2) unstable; urgency=medium
 
   * Fix homepage URL (Closes: #1050484)
