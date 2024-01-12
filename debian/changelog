@@ -1,3 +1,11 @@
+thermald (2.5.4-4) unstable; urgency=medium
+
+  * debian/copyright: update copyright year
+  * debian/control: remove obsolute lsb-base from depends, cleans
+    up lintian warning
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Fri, 12 Jan 2024 14:24:11 +0000
+
 thermald (2.5.4-3) unstable; urgency=medium
 
   * Fix debian/watch, replace thermal-daemon with thermal_deamon

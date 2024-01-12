@@ -21,7 +21,7 @@ Homepage: https://github.com/intel/thermal_daemon
 
 Package: thermald
 Architecture: i386 amd64
-Depends: ${shlibs:Depends}, ${misc:Depends}, lsb-base (>= 3.0-6)
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Thermal monitoring and controlling daemon
  Thermal Daemon is a Linux daemon for monitoring and
  controlling platform temperatures. Once the system
