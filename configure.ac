@@ -1,7 +1,7 @@
 AC_PREREQ(1.0)
 
 m4_define([td_major_version], [2])
-m4_define([td_minor_version], [5.4])
+m4_define([td_minor_version], [5.5])
 m4_define([td_version],
           [td_major_version.td_minor_version])
 
@@ -129,5 +129,11 @@ AC_CONFIG_FILES([Makefile
                  docs/Makefile
                  docs/version.xml
                  data/Makefile])
+
+AC_ARG_ENABLE(gdbus,
+              [AS_HELP_STRING([--disable-gdbus],
+                              [Switch DBus backend to glib-dbus. (Default: GDBus)])],
+              [],
+              [AC_DEFINE([GDBUS], [1], [Enable GDBus support])])
 
 AC_OUTPUT

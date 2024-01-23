@@ -1,3 +1,9 @@
+thermald (2.5.5-1) unstable; urgency=medium
+
+  * sync to thermald 2.5.4
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Tue, 23 Jan 2024 09:16:36 +0000
+
 thermald (2.5.4-4) unstable; urgency=medium
 
   * debian/copyright: update copyright year
