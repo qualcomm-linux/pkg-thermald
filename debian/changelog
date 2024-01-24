@@ -1,6 +1,13 @@
+thermald (2.5.6-1) unstable; urgency=medium
+
+  * sync to thermald 2.5.6
+  * Fix typo in previous changelog entry
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 24 Jan 2024 18:14:22 +0000
+
 thermald (2.5.5-1) unstable; urgency=medium
 
-  * sync to thermald 2.5.4
+  * sync to thermald 2.5.5
 
  -- Colin Ian King <colin.i.king@gmail.com>  Tue, 23 Jan 2024 09:16:36 +0000
 
