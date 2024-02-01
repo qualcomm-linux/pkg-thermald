@@ -1,0 +1,41 @@
+From cdff66b9277e36fbdde81b70a399ac06de118b9a Mon Sep 17 00:00:00 2001
+From: Kate Hsuan <hpa@redhat.com>
+Date: Wed, 24 Jan 2024 15:54:29 +0800
+Subject: [PATCH 2/2] src: thd_dbus_interface: make dbus-glib section to be
+ managed through GDBUS
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+This two sections can be select through "GDBUS" definition.
+---
+ src/thd_dbus_interface.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/thd_dbus_interface.cpp b/src/thd_dbus_interface.cpp
+index 67f0044..cad86ba 100644
+--- a/src/thd_dbus_interface.cpp
++++ b/src/thd_dbus_interface.cpp
+@@ -131,7 +131,9 @@ gboolean thd_dbus_interface_disable_cooling_device(PrefObject *obj, gchar *name,
+ }
+ 
+ // This is a generated file, which expects the above prototypes
++#ifndef GDBUS
+ #include "thd_dbus_interface.h"
++#endif
+ 
+ // DBUS Related functions
+ 
+@@ -144,8 +146,10 @@ static void pref_object_init(PrefObject *obj) {
+ static void pref_object_class_init(PrefObjectClass *_class) {
+ 	g_assert(_class != NULL);
+ 
++#ifndef GDBUS
+ 	dbus_g_object_type_install_info(PREF_TYPE_OBJECT,
+ 			&dbus_glib_thd_dbus_interface_object_info);
++#endif
+ }
+ 
+ // Callback function called to inform a sent value via dbus
+-- 
+2.39.2
+
