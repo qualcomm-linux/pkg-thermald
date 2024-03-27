@@ -1,0 +1,40 @@
+From 4157b7939f38bdbf3d3b4fc4fecbc8f79b07fbeb Mon Sep 17 00:00:00 2001
+From: Kai-Heng Feng <kai.heng.feng@canonical.com>
+Date: Thu, 22 Feb 2024 10:12:37 +0800
+Subject: [PATCH] Downgrade log level on "Unsupported condition"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+The "Unsupported condition" are quite common on modern Intel CPUs. It's
+also expected as thermald doesn't have proper support for those conditions (and probably never will).
+
+So lower the log level to make it less scary.
+---
+ src/thd_gddv.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/thd_gddv.cpp b/src/thd_gddv.cpp
+index 9b9ff3f..cda3ad4 100644
+--- a/src/thd_gddv.cpp
++++ b/src/thd_gddv.cpp
+@@ -1123,7 +1123,7 @@ int cthd_gddv::verify_condition(struct condition condition) {
+ 		cond_name = "UKNKNOWN";
+ 	else
+ 		cond_name = condition_names[condition.condition];
+-	thd_log_error("Unsupported condition %" PRIu64 " (%s)\n", condition.condition, cond_name);
++	thd_log_info("Unsupported condition %" PRIu64 " (%s)\n", condition.condition, cond_name);
+ 
+ 	return THD_ERROR;
+ }
+@@ -1138,7 +1138,7 @@ int cthd_gddv::verify_conditions() {
+ 	}
+ 
+ 	if (result != 0)
+-		thd_log_error("Unsupported conditions are present\n");
++		thd_log_info("Unsupported conditions are present\n");
+ 
+ 	return result;
+ }
+-- 
+2.39.2
+

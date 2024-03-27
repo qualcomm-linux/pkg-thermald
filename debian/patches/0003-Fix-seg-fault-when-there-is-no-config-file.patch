@@ -1,0 +1,36 @@
+From 9ac497badd88d9a31b0dfde98d8a9054a4087008 Mon Sep 17 00:00:00 2001
+From: Sebastian Amend <sebastian.amend@googlemail.com>
+Date: Fri, 9 Feb 2024 10:36:34 -0800
+Subject: [PATCH] Fix seg fault when there is no config file
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+thermald currently segfaults on its first run.
+
+If a configuration file is missing, `cthd_acpi_rel::generate_conf`
+will invoke `cthd_acpi_rel::parse_target_devices` without a prior call
+to `cthd_acpi_rel::process_psvt`, which is the only place that
+initializes the `psvt_data` and `psvt_count` variables and both are
+read uninitialized, which results in a segfault. Unlike its art and
+trt counterparts, the two variables are not initialized in the
+constructor.
+---
+ src/thd_trt_art_reader.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/thd_trt_art_reader.cpp b/src/thd_trt_art_reader.cpp
+index abddb97..042dca4 100644
+--- a/src/thd_trt_art_reader.cpp
++++ b/src/thd_trt_art_reader.cpp
+@@ -140,7 +140,7 @@ cthd_acpi_rel::cthd_acpi_rel() :
+ 		rel_cdev("/dev/acpi_thermal_rel"), xml_hdr("<?xml version=\"1.0\"?>\n"), conf_begin(
+ 				"<ThermalConfiguration>\n"), conf_end(
+ 				"</ThermalConfiguration>\n"), conf_file(), trt_data(NULL), trt_count(
+-				0), art_data(NULL), art_count(0) {
++				0), art_data(NULL), art_count(0), psvt_data(NULL), psvt_count(0) {
+ 
+ }
+ 
+-- 
+2.39.2
+

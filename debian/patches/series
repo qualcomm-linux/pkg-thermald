@@ -1,2 +1,4 @@
 0001-src-thd_dbus_interface-Fix-unable-to-terminate-throu.patch
 0002-src-thd_dbus_interface-make-dbus-glib-section-to-be-.patch
+0003-Fix-seg-fault-when-there-is-no-config-file.patch
+0004-Downgrade-log-level-on-Unsupported-condition.patch

@@ -1,3 +1,11 @@
+thermald (2.5.6-3) unstable; urgency=medium
+
+  * Pull in two upstream fixes:
+   - Fix seg fault when there is no config file
+   - Downgrade log level on "Unsupported condition"
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 27 Mar 2024 16:09:11 +0000
+
 thermald (2.5.6-2) unstable; urgency=medium
 
   * Pull in two upstream dbus releated fixes from RedHat:
