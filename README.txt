@@ -32,7 +32,6 @@ Install
 	yum install libxml2-devel
 	yum install gtk-doc
 	yum install upower-devel
-	yum install xz-devel
 	yum install libevdev-devel
 
 Replace yum with dnf for later Fedora versions.
@@ -74,7 +73,6 @@ Building on Ubuntu
 	sudo apt install libxml2-dev
 	sudo apt install gtk-doc-tools
 	sudo apt install libupower-glib-dev
-	sudo apt install liblzma-dev
 	sudo apt install libevdev-dev
 
 2
@@ -107,7 +105,6 @@ Install
 	zypper in automake autoconf-archive
 	zypper in gtk-doc
 	zypper in libupower-glib-devel
-	zypper in xz-devel
 	zypper in libevdev-devel
 
 For build, follow the same procedure as Fedora.
@@ -115,6 +112,11 @@ For build, follow the same procedure as Fedora.
 -------------------------------------------
 
 Releases
+
+Release 2.5.7
+- Remove dependency on lzma libs
+- Fix remaining issues with  GDBUS transition
+- Seg fault when no config file for the first time
 
 Release 2.5.6
 - Fix crash with GDBus port
