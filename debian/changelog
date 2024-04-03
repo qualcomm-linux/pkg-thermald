@@ -1,3 +1,9 @@
+thermald (2.5.7-2) unstable; urgency=medium
+
+  * debian/control: remove dependency on liblzma-dev
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 3 Apr 2024 16:01:11 +0100
+
 thermald (2.5.7-1) unstable; urgency=medium
 
   * sync to thermald 2.5.7
