@@ -1,3 +1,9 @@
+thermald (2.5.7-3) unstable; urgency=medium
+
+  * debian/control: switch Build-Depends to systemd-dev (Closes: #1060541)
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Thu, 16 May 2024 17:55:32 +0100
+
 thermald (2.5.7-2) unstable; urgency=medium
 
   * debian/control: remove dependency on liblzma-dev
