@@ -1,3 +1,10 @@
+thermald (2.5.7-4) unstable; urgency=medium
+
+  * debian/control: Build-Depends: add dh-sequence-movetousr (Closes: #1073768)
+  * debian/control: update Standards-Version to  4.7.0
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Thu, 8 Aug 2024 11:01:11 +0100
+
 thermald (2.5.7-3) unstable; urgency=medium
 
   * debian/control: switch Build-Depends to systemd-dev (Closes: #1060541)
