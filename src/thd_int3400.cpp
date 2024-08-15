@@ -29,7 +29,7 @@
 #include <iostream>
 #include <sstream>
 
-cthd_INT3400::cthd_INT3400(std::string _uuid) : uuid(_uuid), base_path("") {
+cthd_INT3400::cthd_INT3400(std::string _uuid) : uuid(std::move(_uuid)), base_path("") {
 	csys_fs cdev_sysfs("");
 
 	if (cdev_sysfs.exists("/sys/bus/acpi/devices/INT3400:00/physical_node/uuids")) {
@@ -42,6 +42,8 @@ cthd_INT3400::cthd_INT3400(std::string _uuid) : uuid(_uuid), base_path("") {
 		base_path = "/sys/bus/acpi/devices/INTC10A0:00/physical_node/uuids/";
 	} else if (cdev_sysfs.exists("/sys/bus/acpi/devices/INTC1042:00/physical_node/uuids")) {
 		base_path = "/sys/bus/acpi/devices/INTC1042:00/physical_node/uuids/";
+	} else if (cdev_sysfs.exists("/sys/bus/acpi/devices/INTC1068:00/physical_node/uuids")) {
+		base_path = "/sys/bus/acpi/devices/INTC1068:00/physical_node/uuids/";
 	}
 	thd_log_info("INT3400 Base path is %s\n", base_path.c_str());
 }

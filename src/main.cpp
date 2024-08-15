@@ -87,7 +87,7 @@ gboolean exclusive_control = FALSE;
 static GMainLoop *g_main_loop;
 
 #ifdef GDBUS
-gint watcher_id = 0;
+gint own_id = 0;
 #endif
 
 // g_log handler. All logs will be directed here
@@ -289,7 +289,10 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Cannot create '%s': %s", TDRUNDIR, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-	g_mkdir_with_parents(TDCONFDIR, 0755); // Don't care return value as directory
+	if (g_mkdir_with_parents(TDCONFDIR, 0755) != 0) {
+		// Don't care return value as directory
+		fprintf(stderr, "Cannot create '%s': %s", TDCONFDIR, strerror(errno));
+	}
 	// may already exist
 	if (log_info) {
 		thd_log_level |= G_LOG_LEVEL_INFO;
@@ -321,9 +324,6 @@ int main(int argc, char *argv[]) {
 		g_unix_signal_add (SIGINT, G_SOURCE_FUNC (sig_int_handler), NULL);
 		g_unix_signal_add (SIGTERM, G_SOURCE_FUNC (sig_int_handler), NULL);
 	}
-
-	// Initialize the GType/GObject system
-	g_type_init();
 
 	// Create a main loop that will dispatch callbacks
 	g_main_loop = g_main_loop_new(NULL, FALSE);
@@ -377,7 +377,7 @@ int main(int argc, char *argv[]) {
 	thd_log_warn("Oops g main loop exit..\n");
 
 #ifdef GDBUS
-	g_bus_unwatch_name (watcher_id);
+	g_bus_unown_name (own_id);
 #endif
 
 	fprintf(stdout, "Exiting ..\n");
