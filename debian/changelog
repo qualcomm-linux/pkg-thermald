@@ -1,3 +1,9 @@
+thermald (2.5.8-1) unstable; urgency=medium
+
+  * sync to thermald 2.5.8
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Thu, 15 Aug 2024 15:41:24 +0100
+
 thermald (2.5.7-4) unstable; urgency=medium
 
   * debian/control: Build-Depends: add dh-sequence-movetousr (Closes: #1073768)

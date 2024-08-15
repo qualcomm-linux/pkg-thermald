@@ -422,7 +422,7 @@ void cthd_gddv::dump_apct() {
 	for (unsigned int i = 0; i < conditions.size(); ++i) {
 		std::vector<struct condition> condition_set;
 
-		thd_log_info("condition_set %d\n", i);
+		thd_log_info("condition_set %u\n", i);
 		condition_set = conditions[i];
 		for (unsigned int j = 0; j < condition_set.size(); ++j) {
 			std::string cond_name, comp_str, op_str;
@@ -455,8 +455,8 @@ void cthd_gddv::dump_apct() {
 
 			thd_log_info(
 					"\ttarget:%d device:%s condition:%s comparison:%s argument:%d"
-							" operation:%s time_comparison:%d time:%d"
-							" stare:%d state_entry_time:%d \n",
+							" operation:%s time_comparison:%d time:%ld"
+							" stare:%d state_entry_time:%ld \n",
 					condition_set[j].target, condition_set[j].device.c_str(),
 					cond_name.c_str(), comp_str.c_str(),
 					condition_set[j].argument, op_str.c_str(),
@@ -571,11 +571,6 @@ int cthd_gddv::parse_psvt(char *name, char *buf, int len) {
 
 	return 0;
 }
-
-#define DECI_KELVIN_TO_CELSIUS(t)       ({                      \
-        int _t = (t);                                          \
-        ((_t-2732 >= 0) ? (_t-2732+5)/10 : (_t-2732-5)/10);     \
-})
 
 void cthd_gddv::dump_psvt() {
 	thd_log_info("..psvt dump begin.. \n");
@@ -1061,7 +1056,7 @@ int cthd_gddv::verify_condition(struct condition condition) {
 		return 0;
 
 	if ( condition.condition >=  ARRAY_SIZE(condition_names))
-		cond_name = "UKNKNOWN";
+		cond_name = "UNKNOWN";
 	else
 		cond_name = condition_names[condition.condition];
 	thd_log_info("Unsupported condition %" PRIu64 " (%s)\n", condition.condition, cond_name);
@@ -1178,7 +1173,7 @@ int cthd_gddv::evaluate_oem_condition(struct condition condition) {
 		}
 		int value = std::stoi(data, NULL);
 
-		return compare_condition(condition, value);
+		return compare_condition(std::move(condition), value);
 	}
 
 	return THD_ERROR;
@@ -1197,7 +1192,7 @@ int cthd_gddv::evaluate_temperature_condition(
 	else
 		sensor_name = condition.device.substr(pos + 1);
 
-	cthd_sensor *sensor = thd_engine->search_sensor(sensor_name);
+	cthd_sensor *sensor = thd_engine->search_sensor(std::move(sensor_name));
 	if (!sensor) {
 		thd_log_info("Unable to find a sensor for %s\n",
 				condition.device.c_str());
@@ -1210,7 +1205,7 @@ int cthd_gddv::evaluate_temperature_condition(
 	// Conditions are specified in decikelvin, temperatures are in
 	// millicelsius.
 	value = value / 100 + 2732;
-	return compare_condition(condition, value);
+	return compare_condition(std::move(condition), value);
 }
 
 #ifdef ANDROID
@@ -1232,7 +1227,7 @@ int cthd_gddv::evaluate_lid_condition(struct condition condition) {
 		int lid_closed = libevdev_get_event_value(lid_dev, EV_SW, SW_LID);
 		value = !lid_closed;
 	}
-	return compare_condition(condition, value);
+	return compare_condition(std::move(condition), value);
 }
 #endif
 
@@ -1241,7 +1236,7 @@ int cthd_gddv::evaluate_workload_condition(
 	// We don't have a good way to assert workload at the moment, so just
 	// default to bursty
 
-	return compare_condition(condition, 3);
+	return compare_condition(std::move(condition), 3);
 }
 
 #ifdef ANDROID
@@ -1273,14 +1268,14 @@ int cthd_gddv::evaluate_platform_type_condition(
 		if (tablet)
 			value = 2;
 	}
-	return compare_condition(condition, value);
+	return compare_condition(std::move(condition), value);
 }
 #endif
 
 int cthd_gddv::evaluate_power_slider_condition(
 		struct condition condition) {
 
-	return compare_condition(condition, power_slider);
+	return compare_condition(std::move(condition), power_slider);
 }
 
 #ifdef ANDROID
@@ -1317,7 +1312,7 @@ int cthd_gddv::evaluate_ac_condition(struct condition condition) {
 	if (on_battery)
 		value = 1;
 
-	return compare_condition(condition, value);
+	return compare_condition(std::move(condition), value);
 }
 #endif
 
@@ -1370,7 +1365,7 @@ int cthd_gddv::evaluate_condition(struct condition condition) {
 		if (condition.time && condition.state_entry_time == 0) {
 			condition.state_entry_time = time(NULL);
 		}
-		ret = compare_time(condition);
+		ret = compare_time(std::move(condition));
 	} else {
 		condition.state_entry_time = 0;
 	}
@@ -1535,6 +1530,8 @@ int cthd_gddv::gddv_init(void) {
 		int3400_base_path = "/sys/bus/platform/devices/INTC10A0:00/";
 	} else if (sysfs.exists("/sys/bus/platform/devices/INTC1042:00")) {
 		int3400_base_path = "/sys/bus/platform/devices/INTC1042:00/";
+	} else if (sysfs.exists("/sys/bus/platform/devices/INTC1068:00")) {
+		int3400_base_path = "/sys/bus/platform/devices/INTC1068:00/";
 	} else {
 		return THD_ERROR;
 	}
