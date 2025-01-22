@@ -1,3 +1,13 @@
+thermald (2.5.8-2) unstable; urgency=medium
+
+  * Pull in three upstream fixes:
+   - Replace " \n" with "\n"
+   - test: Fix spelling mistake "Ploting" -> "Plotting"
+   - src: thd_dbus_interface: add extra sanity check on introspection_data
+  * debian/copyright: Update copyright year
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Wed, 22 Jan 2025 17:29:14 +0000
+
 thermald (2.5.8-1) unstable; urgency=medium
 
   * sync to thermald 2.5.8
