@@ -260,7 +260,8 @@ public:
 	std::vector<struct adaptive_target> targets;
 
 	ppcc_t* get_ppcc_param(std::string name);
-	int gddv_init(void);
+	int gddv_init(std::string& base_path);
+	size_t gddv_load(char **buf);
 	void gddv_free(void);
 	int verify_conditions();
 	int evaluate_conditions();

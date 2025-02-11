@@ -72,10 +72,10 @@ void cthd_intel_p_state_cdev::set_turbo_disable_status(bool enable) {
 	tc_state_dev << "/no_turbo";
 	if (enable) {
 		cdev_sysfs.write(tc_state_dev.str(), "1");
-		thd_log_info("turbo disabled \n");
+		thd_log_info("turbo disabled\n");
 	} else {
 		cdev_sysfs.write(tc_state_dev.str(), "0");
-		thd_log_info("turbo enabled \n");
+		thd_log_info("turbo enabled\n");
 	}
 	turbo_status = enable;
 }
@@ -106,7 +106,6 @@ int cthd_intel_p_state_cdev::update() {
 		ret = cdev_sysfs.read(status_attr.str(), status_str);
 		if (ret >= 0 && status_str != "active") {
 			thd_log_info("intel pstate is not in active mode\n");
-			return THD_ERROR;
 		}
 	}
 
