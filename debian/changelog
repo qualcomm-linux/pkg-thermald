@@ -1,3 +1,10 @@
+thermald (2.5.9-1) unstable; urgency=medium
+
+  * sync to thermald 2.5.9
+  * remove patches now that they are in 2.5.9
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Tue, 11 Feb 2025 16:24:23 +0000
+
 thermald (2.5.8-2) unstable; urgency=medium
 
   * Pull in three upstream fixes:
