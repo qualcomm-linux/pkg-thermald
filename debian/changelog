@@ -1,3 +1,12 @@
+thermald (2.5.9-2) unstable; urgency=medium
+
+  * Orphan upload
+  * Update Maintainer field to Debian QA Group <packages@qa.debian.org>
+    so package can be orphaned
+  * Update standards version to 4.7.2
+
+ -- Colin Ian King <colin.i.king@gmail.com>  Mon, 15 Sep 2025 13:35:23 +0100
+
 thermald (2.5.9-1) unstable; urgency=medium
 
   * sync to thermald 2.5.9

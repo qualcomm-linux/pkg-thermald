@@ -2,8 +2,8 @@ Source: thermald
 Rules-Requires-Root: no
 Section: admin
 Priority: optional
-Maintainer: Colin Ian King <colin.i.king@gmail.com>
-Standards-Version: 4.7.0
+Maintainer: Debian QA Group <packages@qa.debian.org>
+Standards-Version: 4.7.2
 Build-Depends: debhelper (>= 13),
                debhelper-compat (=13),
                dh-sequence-movetousr,
