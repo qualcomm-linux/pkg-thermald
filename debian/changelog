@@ -1,3 +1,16 @@
+thermald (2.5.9-3) unstable; urgency=medium
+
+  * QA upload.
+  * Rely on systemd.pc (from systemd-dev) to set the correct install path for
+    unit files.
+  * Remove usage of dh-sequence-movetousr. No longer necessary if files are
+    installed directly into /usr.
+  * Remove /etc/thermald/thermal-cpu-cdev-order.xml from debian/conffiles.
+    Files in /etc are automatically marked as conffiles. Fixes lintian error
+    "duplicate-conffile etc/thermald/thermal-cpu-cdev-order.xml".
+
+ -- Michael Biebl <biebl@debian.org>  Sun, 23 Nov 2025 12:17:56 +0100
+
 thermald (2.5.9-2) unstable; urgency=medium
 
   * Orphan upload

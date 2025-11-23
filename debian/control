@@ -6,7 +6,6 @@ Maintainer: Debian QA Group <packages@qa.debian.org>
 Standards-Version: 4.7.2
 Build-Depends: debhelper (>= 13),
                debhelper-compat (=13),
-               dh-sequence-movetousr,
                systemd-dev,
                autoconf,
                autoconf-archive,
