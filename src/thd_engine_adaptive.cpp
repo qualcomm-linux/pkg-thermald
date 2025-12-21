@@ -365,7 +365,7 @@ int cthd_engine_adaptive::set_itmt_target(struct adaptive_target &target) {
 			cthd_zone *_zone = zones[i];
 
 			// This is only for debug to plot power, so keep
-			if (_zone->get_zone_type() == "rapl_pkg_power")
+			if (_zone->get_zone_type() == "rapl_pkg_power" || _zone->get_zone_type() == "power_floor")
 				continue;
 
 			_zone->zone_reset(1);
@@ -386,7 +386,7 @@ int cthd_engine_adaptive::set_itmt_target(struct adaptive_target &target) {
 
 void cthd_engine_adaptive::set_int3400_target(struct adaptive_target &target) {
 
-	if (target.code == "ITMT") {
+	if (target.code == "ITMT" || target.code == "ITMT3") {
 		if (set_itmt_target(target) == THD_SUCCESS) {
 			int3400_installed = 1;
 		}
@@ -407,7 +407,7 @@ void cthd_engine_adaptive::set_int3400_target(struct adaptive_target &target) {
 				cthd_zone *_zone = zones[i];
 
 				// This is only for debug to plot power, so keep
-				if (_zone->get_zone_type() == "rapl_pkg_power")
+				if (_zone->get_zone_type() == "rapl_pkg_power" || _zone->get_zone_type() == "power_floor")
 					continue;
 
 				_zone->zone_reset(1);
@@ -651,6 +651,8 @@ int cthd_engine_adaptive::thd_engine_init(bool ignore_cpuid_check,
 		int3400_base_path = "/sys/bus/platform/devices/INTC1042:00/";
 	} else if (sysfs.exists("/sys/bus/platform/devices/INTC1068:00")) {
 		int3400_base_path = "/sys/bus/platform/devices/INTC1068:00/";
+	} else if (sysfs.exists("/sys/bus/platform/devices/INTC10D4:00")) {
+		int3400_base_path = "/sys/bus/platform/devices/INTC10D4:00/";
 	} else {
 		if (set_int3400_base_path() != THD_SUCCESS)
 			return THD_ERROR;
