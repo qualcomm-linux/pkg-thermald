@@ -5,6 +5,7 @@ Source: https://github.com/01org/thermal_daemon.git
 
 Files: *
 Copyright: 2013-2025 Intel Corporation
+           2020      Google LLC
 License: GPL-2
  On Debian systems, the complete text of the GNU General Public
  License can be found in `/usr/share/common-licenses/GPL-2'.
@@ -12,6 +13,7 @@ License: GPL-2
 Files: debian/*
 Copyright: 2014-2021, Canonical Ltd
            2022-2025, Colin Ian King
+                2025, Lucas de Castro Borges
 License: GPL-2+
  On Debian systems, the complete text of the GNU General Public
  License can be found in `/usr/share/common-licenses/GPL-2'.
