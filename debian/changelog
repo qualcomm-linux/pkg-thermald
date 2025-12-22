@@ -1,3 +1,12 @@
+thermald (2.5.10-1) unstable; urgency=medium
+
+  * New upstream version 2.5.10
+  * New maintainer (Closes: #1111187)
+  * Add casting in thd_log_info call to fix FTBFS issue on i386
+  * d/copyright updated
+
+ -- Lucas de Castro Borges <lucas@gnuabordo.com.br>  Mon, 22 Dec 2025 11:10:00 -0300
+
 thermald (2.5.9-4) unstable; urgency=medium
 
   * QA upload.
