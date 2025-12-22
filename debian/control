@@ -1,6 +1,5 @@
 Source: thermald
 Section: admin
-Priority: optional
 Maintainer: Debian QA Group <packages@qa.debian.org>
 Standards-Version: 4.7.2
 Build-Depends: debhelper (>= 13),
