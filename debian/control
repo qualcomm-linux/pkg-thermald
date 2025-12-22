@@ -1,6 +1,6 @@
 Source: thermald
 Section: admin
-Maintainer: Debian QA Group <packages@qa.debian.org>
+Maintainer: Lucas de Castro Borges <lucas@gnuabordo.com.br>
 Standards-Version: 4.7.2
 Build-Depends: debhelper (>= 13),
                debhelper-compat (=13),
