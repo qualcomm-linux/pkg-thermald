@@ -1,5 +1,4 @@
 Source: thermald
-Rules-Requires-Root: no
 Section: admin
 Priority: optional
 Maintainer: Debian QA Group <packages@qa.debian.org>
