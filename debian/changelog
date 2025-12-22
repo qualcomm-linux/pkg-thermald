@@ -1,3 +1,15 @@
+thermald (2.5.9-4) unstable; urgency=medium
+
+  * QA upload.
+  * Fix clean target.
+  * d/README.source: Drop obsolete file.
+  * d/control: Drop "Rules-Requires-Root: no" (default).
+  * d/control: Drop "Priority: optional" (default).
+  * d/control: Add Vcs fields.
+  * Add debian/salsa-ci.yml.
+
+ -- Santiago Vila <sanvila@debian.org>  Mon, 22 Dec 2025 10:10:00 +0100
+
 thermald (2.5.9-3) unstable; urgency=medium
 
   * QA upload.
