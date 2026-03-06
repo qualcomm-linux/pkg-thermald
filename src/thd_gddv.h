@@ -99,7 +99,7 @@ enum adaptive_condition {
 };
 
 enum adaptive_comparison {
-	ADAPTIVE_EQUAL = 0x01, ADAPTIVE_LESSER_OR_EQUAL, ADAPTIVE_GREATER_OR_EQUAL,
+	ADAPTIVE_EQUAL = 0x01, ADAPTIVE_LESSER_OR_EQUAL, ADAPTIVE_GREATER_OR_EQUAL, ADAPTIVE_NOT_EQUAL,
 };
 
 enum adaptive_operation {
@@ -211,24 +211,25 @@ private:
 	int parse_ppcc(char *name, char *ppcc, int len);
 	int parse_psvt(char *name, char *psvt, int len);
 	int parse_itmt(char *name, char *itmt, int len);
+	int parse_itmt3(char *name, char *itmt, unsigned int len);
 	int parse_trt(char *trt, int len);
 	void parse_idsp(char *name, char *idsp, int len);
 	void parse_trip_point(char *name, char *type, char *val, int len);
 	int handle_compressed_gddv(char *buf, int size);
 	int parse_gddv_key(char *buf, int size, int *end_offset);
 	int parse_gddv(char *buf, int size, int *end_offset);
-	int verify_condition(struct condition condition);
-	int compare_condition(struct condition condition, int value);
-	int compare_time(struct condition condition);
-	int evaluate_oem_condition(struct condition condition);
+	int verify_condition(const struct condition& condition);
+	int compare_condition(const struct condition& condition, int value);
+	int compare_time(const struct condition& condition);
+	int evaluate_oem_condition(const struct condition& condition);
 	int evaluate_temperature_condition(struct condition condition);
-	int evaluate_ac_condition(struct condition condition);
-	int evaluate_lid_condition(struct condition condition);
-	int evaluate_workload_condition(struct condition condition);
-	int evaluate_platform_type_condition(struct condition condition);
-	int evaluate_power_slider_condition(struct condition condition);
+	int evaluate_ac_condition(const struct condition& condition);
+	int evaluate_lid_condition(const struct condition& condition);
+	int evaluate_workload_condition(const struct condition& condition);
+	int evaluate_platform_type_condition(const struct condition& condition);
+	int evaluate_power_slider_condition(const struct condition& condition);
 	int evaluate_condition(struct condition condition);
-	int evaluate_condition_set(std::vector<struct condition> condition_set);
+	int evaluate_condition_set(const std::vector<struct condition>& condition_set);
 	void exec_fallback_target(int target);
 	void dump_apat();
 	void dump_apct();
@@ -240,7 +241,7 @@ private:
 #ifndef ANDROID
 	void setup_input_devices();
 #endif
-	int get_trip_temp(std::string name, trip_point_type_t type);
+	int get_trip_temp(const std::string& name, trip_point_type_t type);
 
 public:
 #ifndef ANDROID
@@ -259,7 +260,7 @@ public:
 	std::vector<std::vector<struct condition>> conditions;
 	std::vector<struct adaptive_target> targets;
 
-	ppcc_t* get_ppcc_param(std::string name);
+	ppcc_t* get_ppcc_param(const std::string& name);
 	int gddv_init(std::string& base_path);
 	size_t gddv_load(char **buf);
 	void gddv_free(void);
@@ -267,10 +268,10 @@ public:
 	int evaluate_conditions();
 	void update_power_slider();
 	int find_agressive_target();
-	struct psvt* find_psvt(std::string name);
-	struct itmt* find_itmt(std::string name);
+	struct psvt* find_psvt(const std::string& name);
+	struct itmt* find_itmt(const std::string& name);
 	struct psvt* find_def_psvt();
-	int search_idsp(std::string name);
+	int search_idsp(const std::string& name);
 
 };
 

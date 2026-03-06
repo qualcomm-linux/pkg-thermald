@@ -72,7 +72,7 @@ cthd_parse::cthd_parse() :
 	filename_auto_conf = name_conf + "/" + "thermal-conf.xml.auto";
 }
 
-int cthd_parse::parser_init(std::string config_file) {
+int cthd_parse::parser_init(const std::string& config_file) {
 	cthd_acpi_rel rel;
 	const char *xml_config_file;
 	int ret;
@@ -104,6 +104,36 @@ int cthd_parse::parser_init(std::string config_file) {
 			thd_log_msg("Config file %s does not exist\n", xml_config_file);
 			return THD_ERROR;
 		}
+	}
+
+	struct stat file_stat;
+
+	if (stat(xml_config_file, &file_stat) == -1) {
+		thd_log_info("Could not get file status for %s\n", xml_config_file);
+		return THD_ERROR;
+	}
+
+	// Make sure file is owned by root and not writable by group/others
+
+	if (file_stat.st_uid != 0) {
+		thd_log_info("Config file %s is not owned by root\n", xml_config_file);
+		return THD_ERROR;
+	}
+
+	if (file_stat.st_mode & (S_IWGRP | S_IWOTH)) {
+		thd_log_info("File %s is group, other writable\n", xml_config_file);
+		return THD_ERROR;
+	}
+
+	// Check if file is not a symbolic link
+
+	if (lstat(xml_config_file, &file_stat) == -1) {
+		return THD_ERROR;
+	}
+
+	if (S_ISLNK(file_stat.st_mode)) {
+		thd_log_info("Config file %s is a symbolic link\n", xml_config_file);
+		return THD_ERROR;
 	}
 
 	thd_log_msg("Using config file %s\n", xml_config_file);
@@ -286,7 +316,7 @@ int cthd_parse::parse_trip_points(xmlNode * a_node, xmlDoc *doc,
 				trip_pt.dependency.dependency = 0;
 				if (parse_new_trip_point(cur_node->children, doc,
 						&trip_pt) == THD_SUCCESS)
-					info_ptr->trip_pts.push_back(trip_pt);
+					info_ptr->trip_pts.push_back(std::move(trip_pt));
 			}
 		}
 	}
@@ -359,7 +389,7 @@ int cthd_parse::parse_new_cooling_dev(xmlNode * a_node, xmlDoc *doc,
 	cdev->inc_dec_step = 1;
 	cdev->read_back = true;
 	cdev->auto_down_control = false;
-	cdev->status = 0;
+	cdev->status = false;
 	cdev->pid_enable = false;
 	cdev->unit_val = ABSOULUTE_VALUE;
 	cdev->debounce_interval = 0;
@@ -978,7 +1008,7 @@ thermal_zone_t *cthd_parse::get_zone_dev_index(unsigned int zone_index) {
 
 }
 
-ppcc_t *cthd_parse::get_ppcc_param(std::string name) {
+ppcc_t *cthd_parse::get_ppcc_param(const std::string& name) {
 	if (name != "TCPU.D0")
 		return NULL;
 
