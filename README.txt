@@ -54,6 +54,8 @@ add appropriate prefix.
 	sudo systemctl status thermald.service
 - Stop service
 	sudo systemctl stop thermald.service
+- To enable service at boot
+	sudo systemctl enable thermald.service
 
 4. Terminate using DBUS I/F
 	sudo test/test_pref.sh
@@ -108,6 +110,13 @@ For build, follow the same procedure as Fedora.
 -------------------------------------------
 
 Releases
+
+Release 2.5.11
+- Clang-tidy fixes
+- Wildcat Lake support
+- CVE related to symbolic links exploitations
+- dbus interface fixes and remove power group after Thermal monitor
+support is deprecated
 
 Release 2.5.10
 - For new ITMT string version 3 support
