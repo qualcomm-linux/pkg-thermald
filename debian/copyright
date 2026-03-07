@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: intel-thermal-daemon
 Upstream-Contact: Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>
-Source: https://github.com/01org/thermal_daemon.git
+Source: https://github.com/intel/thermal_daemon.git
 
 Files: *
 Copyright: 2013-2025 Intel Corporation
