@@ -1,7 +1,7 @@
 Source: thermald
 Section: admin
 Maintainer: Lucas de Castro Borges <lucas@gnuabordo.com.br>
-Standards-Version: 4.7.2
+Standards-Version: 4.7.4
 Build-Depends: debhelper (>= 13),
                debhelper-compat (=13),
                systemd-dev,
