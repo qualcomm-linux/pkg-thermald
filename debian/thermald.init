@@ -12,7 +12,9 @@
 
 set -e
 
-THERMALD="/usr/sbin/thermald"
+NAME=thermald
+DAEMON="/usr/sbin/thermald"
+PIDFILE=/var/run/$NAME.pid
 
 # Check for daemon presence
 [ -x "$THERMALD" ] || exit 0
@@ -26,12 +28,12 @@ MODULES=""
 case "$1" in
   start)
     log_begin_msg "Starting thermald..."
-    start-stop-daemon --start --quiet --oknodo --exec "$THERMALD" -- $OPTIONS
+    start-stop-daemon --start --quiet --oknodo --exec "$DAEMON" -- $OPTIONS
     log_end_msg $?
     ;;
   stop)
     log_begin_msg "Stopping thermald..."
-    start-stop-daemon --stop --quiet --oknodo --retry 2 --exec "$THERMALD"
+    start-stop-daemon --stop --quiet --oknodo --retry 2 --exec "$DAEMON"
     log_end_msg $?
     ;;
   restart)
@@ -41,9 +43,12 @@ case "$1" in
     ;;
   reload|force-reload) 
     log_begin_msg "Reloading thermald..."
-    start-stop-daemon --stop --signal 1 --exec "$THERMALD"
+    start-stop-daemon --stop --signal 1 --exec "$DAEMON"
     log_end_msg $?
     ;;
+  status)
+    status_of_proc -p  $PIDFILE $DAEMON $NAME  && exit 0 || exit $?
+  ;;
   *)
     log_success_msg "Usage: /etc/init.d/thermald {start|stop|restart|reload|force-reload}"
     exit 1
