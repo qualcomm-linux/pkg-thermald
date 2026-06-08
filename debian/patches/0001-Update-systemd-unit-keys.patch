@@ -1,0 +1,21 @@
+From: Lucas de Castro Borges <lucas@gnuabordo.com.br>
+Date: Mon, 8 Jun 2026 16:58:03 -0300
+Subject: Update systemd unit keys
+
+	Add Documentation key for systemd service
+---
+ data/thermald.service.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/data/thermald.service.in b/data/thermald.service.in
+index b2ecafe..767d779 100644
+--- a/data/thermald.service.in
++++ b/data/thermald.service.in
+@@ -1,6 +1,7 @@
+ [Unit]
+ Description=Thermal Daemon Service
+ ConditionVirtualization=no
++Documentation=man:thermald(8)
+ 
+ [Service]
+ Type=dbus
