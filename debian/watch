@@ -1,5 +1,6 @@
 version=4
-opts="filenamemangle=s%.*/@ANY_VERSION@%@PACKAGE@-$1.tar.gz%,searchmode=plain" \
+opts="searchmode=plain,\
+filenamemangle=s%.*/@ANY_VERSION@%@PACKAGE@-$1.tar.gz%,\
+pgpsigurlmangle=s%./@ANY_VERSION@%v$1/thermal_daemon-$1.tar.gz%;s%api.%%;s%repos/%%;s%tarbal%releases/download/%;s%$%.asc%" \
     https://api.github.com/repos/intel/thermal_daemon/releases?per_page=100 \
     https://api.github.com/repos/intel/thermal_daemon/tarball/@ANY_VERSION@
-
