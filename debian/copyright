@@ -10,10 +10,14 @@ License: GPL-2
  On Debian systems, the complete text of the GNU General Public
  License can be found in `/usr/share/common-licenses/GPL-2'.
 
+Files: src/7zTypes.h src/LzmaDec.c
+Copyright: 2018, Igor Pavlov
+License: public-domain
+
 Files: debian/*
 Copyright: 2014-2021, Canonical Ltd
            2022-2025, Colin Ian King
-                2025, Lucas de Castro Borges
+           2025-2026, Lucas de Castro Borges
 License: GPL-2+
  On Debian systems, the complete text of the GNU General Public
  License can be found in `/usr/share/common-licenses/GPL-2'.
