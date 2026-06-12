@@ -1,6 +1,7 @@
 thermald (2.5.12-1) UNRELEASED; urgency=medium
 
   * New upstream version 2.5.12
+  * d/rules: cleaned out
   * d/control: 
     -	Updated standards-version to 4.7.4
     -	B-D dropped libdbus-glib-1-dev (Closes: #955954)
