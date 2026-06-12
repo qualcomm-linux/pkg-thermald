@@ -1,12 +1,13 @@
-thermald (2.5.11-1) UNRELEASED; urgency=medium
+thermald (2.5.12-1) UNRELEASED; urgency=medium
 
-  * New upstream version 2.5.11
+  * New upstream version 2.5.12
   * d/control: 
     -	Updated standards-version to 4.7.4
     -	B-D dropped libdbus-glib-1-dev (Closes: #955954)
   * Reintroduce sysv init script  (Closes: #885068)
+  * d/clean: avoid remove data source file
   * d/watch:
-    -	Search only for release files instead of tags
+    -	Search only for release and point url download to release tag
     -	Add pgpsigurlmangle
   * d/patches updated:
     -   Add patch adding systemd documentation key
@@ -14,9 +15,11 @@ thermald (2.5.11-1) UNRELEASED; urgency=medium
     -	Fix source git url
     -   Add other upstream author
   * Reintroduce sysv init script
-  * Add debian/upstream/metadata
+  * debian/upstream/:
+    - Add metadata file
+    - Add upstream pubkey for signature checking
 
- -- Lucas de Castro Borges <lucas@gnuabordo.com.br>  Tue, 09 Jun 2026 07:20:14 -0300
+ -- Lucas de Castro Borges <lucas@gnuabordo.com.br>  Fri, 12 Jun 2026 15:47:15 -0300
 
 thermald (2.5.10-1) unstable; urgency=medium
 
