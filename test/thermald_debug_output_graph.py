@@ -233,7 +233,7 @@ def parse_temperature(log_file):
                     string_buffer += temperature[x][y] + ", "
 
             else:
-                string_buffer += last_val[x] + ", "
+                string_buffer += str(last_val[x]) + ", "
 
         string_buffer += "\n"
         f_handle.write(string_buffer)

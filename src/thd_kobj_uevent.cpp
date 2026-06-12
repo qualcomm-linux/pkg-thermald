@@ -62,14 +62,21 @@ bool cthd_kobj_uevent::check_for_event() {
 	buffer[len] = '\0';
 
 	while (i < len) {
-		if (strlen(buffer + i) > dev_path_len
+		// Use strnlen with len - i + 1 to include the appended '\0' at buffer[len]
+		// This ensures the last field is processed even if it reaches position len-1
+		size_t field_len = strnlen(buffer + i, (size_t)(len - i + 1));
+		if (i + field_len > (size_t)len) {
+			break;  // Malformed uevent data
+		}
+
+		if (field_len > dev_path_len
 				&& !strncmp(buffer + i, dev_path, dev_path_len)) {
 			if (!strncmp(buffer + i + dev_path_len, device_path,
 					strlen(device_path))) {
 				return true;
 			}
 		}
-		i += strlen(buffer + i) + 1;
+		i += field_len + 1;
 	}
 
 	return false;

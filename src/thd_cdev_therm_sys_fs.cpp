@@ -34,21 +34,21 @@ int cthd_sysfs_cdev::update() {
 
 	std::ostringstream tc_state_dev;
 	tc_state_dev << "cooling_device" << index << "/cur_state";
+	curr_state = 0;  // Initialize before read
 	if (cdev_sysfs.exists(tc_state_dev.str())) {
 		int ret = cdev_sysfs.read(tc_state_dev.str(), &curr_state);
 		if (ret < 0)
 			return ret;
-	} else
-		curr_state = 0;
+	}
 
 	std::ostringstream tc_max_state_dev;
 	tc_max_state_dev << "cooling_device" << index << "/max_state";
+	max_state = 0;  // Initialize before read
 	if (cdev_sysfs.exists(tc_max_state_dev.str())) {
 		int ret = cdev_sysfs.read(tc_max_state_dev.str(), &max_state);
 		if (ret < 0)
 			return ret;
-	} else
-		max_state = 0;
+	}
 
 	std::ostringstream tc_type_dev;
 	tc_type_dev << "cooling_device" << index << "/type";
@@ -73,12 +73,12 @@ int cthd_sysfs_cdev::get_max_state() {
 
 	std::ostringstream tc_state_dev;
 	tc_state_dev << "cooling_device" << index << "/max_state";
+	max_state = 0;  // Initialize before read
 	if (cdev_sysfs.exists(tc_state_dev.str())) {
 		int ret = cdev_sysfs.read(tc_state_dev.str(), &max_state);
 		if (ret < 0)
 			return ret;
-	} else
-		max_state = 0;
+	}
 
 	return max_state;
 }
@@ -104,12 +104,12 @@ int cthd_sysfs_cdev::get_curr_state() {
 	}
 	std::ostringstream tc_state_dev;
 	tc_state_dev << "cooling_device" << index << "/cur_state";
+	curr_state = 0;  // Initialize before read
 	if (cdev_sysfs.exists(tc_state_dev.str())) {
 		int ret = cdev_sysfs.read(tc_state_dev.str(), &curr_state);
 		if (ret < 0)
 			return ret;
-	} else
-		curr_state = 0;
+	}
 
 	return curr_state;
 }

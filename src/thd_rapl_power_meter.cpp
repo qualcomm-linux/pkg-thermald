@@ -26,6 +26,7 @@
 #include <dirent.h>
 #include <fnmatch.h>
 #include <time.h>
+#include "thd_util.h"
 
 static void *rapl_periodic_callback(void *data) {
 	cthd_rapl_power_meter *rapl_cl = (cthd_rapl_power_meter*) data;
@@ -36,7 +37,7 @@ static void *rapl_periodic_callback(void *data) {
 		sleep(rapl_cl->rapl_callback_timeout);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 cthd_rapl_power_meter::cthd_rapl_power_meter(unsigned int mask) :
@@ -48,7 +49,7 @@ cthd_rapl_power_meter::cthd_rapl_power_meter(unsigned int mask) :
 	if (rapl_sysfs.exists()) {
 		thd_log_debug("RAPL sysfs present\n");
 		rapl_present = true;
-		last_time = time(NULL);
+		last_time = time(nullptr);
 		rapl_read_domains(rapl_sysfs.get_base_path().c_str());
 	} else {
 		thd_log_warn("NO RAPL sysfs present\n");
@@ -64,8 +65,8 @@ void cthd_rapl_power_meter::rapl_read_domains(const char *dir_name) {
 		DIR *dir;
 		struct dirent *dir_entry;
 		thd_log_debug("RAPL base path %s\n", dir_name);
-		if ((dir = opendir(dir_name)) != NULL) {
-			while ((dir_entry = readdir(dir)) != NULL) {
+		if ((dir = opendir(dir_name)) != nullptr) {
+			while ((dir_entry = readdir(dir)) != nullptr) {
 				std::string buffer;
 				std::ostringstream path;
 				int status;
@@ -81,8 +82,8 @@ void cthd_rapl_power_meter::rapl_read_domains(const char *dir_name) {
 				domain.min_power = 0;
 				domain.type = INVALID;
 
-				if (!strcmp(dir_entry->d_name, ".")
-						|| !strcmp(dir_entry->d_name, ".."))
+				if (!thd_strcmp_n(dir_entry->d_name, ".")
+						|| !thd_strcmp_n(dir_entry->d_name, ".."))
 					continue;
 				thd_log_debug("RAPL domain dir %s\n", dir_entry->d_name);
 				path << dir_name << dir_entry->d_name << "/" << "name";
@@ -141,7 +142,7 @@ bool cthd_rapl_power_meter::rapl_energy_loop() {
 	if (!enable_measurement)
 		return false;
 
-	curr_time = time(NULL);
+	curr_time = time(nullptr);
 	if ((curr_time - last_time) <= 0)
 		return true;
 	for (unsigned int i = 0; i < domain_list.size(); ++i) {
@@ -282,6 +283,23 @@ unsigned int cthd_rapl_power_meter::rapl_action_get_max_power(
 			value = const_1_val > const_0_val ? const_1_val : const_0_val;
 			if (value)
 				return value;
+		}
+	}
+
+	return value;
+}
+
+unsigned int cthd_rapl_power_meter::rapl_action_get_last_power(domain_type type)
+{
+	unsigned int value = 0;
+
+	if (!rapl_present)
+		return 0;
+
+	for (unsigned int i = 0; i < domain_list.size(); ++i) {
+		if (type == domain_list[i].type) {
+			value = domain_list[i].power * 1000;
+			break;
 		}
 	}
 

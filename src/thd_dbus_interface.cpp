@@ -29,6 +29,7 @@
 #include "thd_sensor.h"
 #include "thd_zone.h"
 #include "thd_trip_point.h"
+#include "thd_util.h"
 
 #include <gio/gio.h>
 #include <glib.h>
@@ -139,12 +140,12 @@ gboolean thd_dbus_interface_disable_cooling_device(PrefObject *obj, gchar *name,
 
 // Dbus object initialization
 static void pref_object_init(PrefObject *obj) {
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 }
 
 // Dbus object class initialization
 static void pref_object_class_init(PrefObjectClass *_class) {
-	g_assert(_class != NULL);
+	g_assert(_class != nullptr);
 
 #ifndef GDBUS
 	dbus_g_object_type_install_info(PREF_TYPE_OBJECT,
@@ -159,10 +160,10 @@ gboolean thd_dbus_interface_set_current_preference(PrefObject *obj, gchar *pref,
 
 	thd_log_debug("thd_dbus_interface_set_current_preference %s\n",
 			(char*) pref);
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 	cthd_preference thd_pref;
 	ret = thd_pref.set_preference((char*) pref);
-	thd_engine->send_message(PREF_CHANGED, 0, NULL);
+	thd_engine->send_message(PREF_CHANGED, 0, nullptr);
 
 	return ret;
 }
@@ -171,9 +172,9 @@ gboolean thd_dbus_interface_set_current_preference(PrefObject *obj, gchar *pref,
 gboolean thd_dbus_interface_get_current_preference(PrefObject *obj,
 		gchar **pref_out, GError **error) {
 	thd_log_debug("thd_dbus_interface_get_current_preference\n");
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 	gchar *value_out;
-	static char *pref_str;
+	char *pref_str;
 
 	pref_str = g_new(char, MAX_DBUS_REPLY_STR_LEN);
 
@@ -187,6 +188,7 @@ gboolean thd_dbus_interface_get_current_preference(PrefObject *obj,
 		return FALSE;
 	}
 	strncpy(pref_str, value_out, MAX_DBUS_REPLY_STR_LEN);
+	pref_str[MAX_DBUS_REPLY_STR_LEN - 1] = '\0';
 	free(value_out);
 	thd_log_debug("thd_dbus_interface_get_current_preference out :%s\n",
 			pref_str);
@@ -211,13 +213,13 @@ gboolean thd_dbus_interface_reinit(PrefObject *obj, GError **error) {
 		exclusive_control = true;
 
 	std::string config_file = thd_engine->get_config_file();
-	const char *conf_file = NULL;
+	const char *conf_file = nullptr;
 	if (!config_file.empty())
 		conf_file = config_file.c_str();
 
 	thd_engine->thd_engine_terminate();
 	sleep(1);
-	delete thd_engine;
+	thd_engine.reset();
 	sleep(2);
 
 
@@ -231,16 +233,18 @@ gboolean thd_dbus_interface_reinit(PrefObject *obj, GError **error) {
 
 gboolean thd_dbus_interface_set_user_max_temperature(PrefObject *obj,
 		gchar *zone_name, unsigned int temperature, GError **error) {
+	if (zone_name == nullptr || !is_valid_thermal_object_name(zone_name))
+		return FALSE;
 
 	thd_log_debug("thd_dbus_interface_set_user_set_point %s:%d\n", zone_name,
 			temperature);
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	int ret = thd_engine->user_set_max_temp(zone_name, temperature);
 
 	if (ret == THD_SUCCESS)
-		thd_engine->send_message(PREF_CHANGED, 0, NULL);
+		thd_engine->send_message(PREF_CHANGED, 0, nullptr);
 	else
 		return FALSE;
 
@@ -249,15 +253,17 @@ gboolean thd_dbus_interface_set_user_max_temperature(PrefObject *obj,
 
 gboolean thd_dbus_interface_set_user_passive_temperature(PrefObject *obj,
 		gchar *zone_name, unsigned int temperature, GError **error) {
+	if (zone_name == nullptr || !is_valid_thermal_object_name(zone_name))
+		return FALSE;
 
 	thd_log_debug("thd_dbus_interface_set_user_passive_temperature %s:%u\n",
 			zone_name, temperature);
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	int ret = thd_engine->user_set_psv_temp(zone_name, temperature);
 
 	if (ret == THD_SUCCESS)
-		thd_engine->send_message(PREF_CHANGED, 0, NULL);
+		thd_engine->send_message(PREF_CHANGED, 0, nullptr);
 	else
 		return FALSE;
 
@@ -268,7 +274,7 @@ gboolean thd_dbus_interface_add_sensor(PrefObject *obj, gchar *sensor,
 		gchar *path, GError **error) {
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	thd_log_debug("thd_dbus_interface_add_sensor %s:%s\n", (char*) sensor,
 			(char *) path);
@@ -286,7 +292,12 @@ gboolean thd_dbus_interface_add_virtual_sensor(PrefObject *obj, gchar *name,
 
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
+	if (name == nullptr || !is_valid_thermal_object_name(name))
+		return FALSE;
+	if (!is_valid_finite_value(slope, -1000.0, 1000.0)
+			|| !is_valid_finite_value(intercept, -1000.0, 1000.0))
+		return FALSE;
 
 	thd_log_debug("thd_dbus_interface_add_sensor %s:%s\n", (char*) name,
 			(char *) dep_sensor);
@@ -477,7 +488,9 @@ gboolean thd_dbus_interface_add_zone_passive(PrefObject *obj, gchar *zone_name,
 		gint trip_temp, gchar *sensor_name, gchar *cdev_name, GError **error) {
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
+	if (zone_name == nullptr || !is_valid_thermal_object_name(zone_name))
+		return FALSE;
 
 	thd_log_debug("thd_dbus_interface_add_zone_passive %s\n",
 			(char*) zone_name);
@@ -494,7 +507,7 @@ gboolean thd_dbus_interface_set_zone_status(PrefObject *obj, gchar *zone_name,
 		int status, GError **error) {
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	thd_log_debug("thd_dbus_interface_set_zone_status %s\n", (char*) zone_name);
 
@@ -509,7 +522,7 @@ gboolean thd_dbus_interface_get_zone_status(PrefObject *obj, gchar *zone_name,
 		int *status, GError **error) {
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	thd_log_debug("thd_dbus_interface_set_zone_status %s\n", (char*) zone_name);
 
@@ -524,7 +537,7 @@ gboolean thd_dbus_interface_delete_zone(PrefObject *obj, gchar *zone_name,
 		GError **error) {
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	thd_log_debug("thd_dbus_interface_delete_zone %s\n", (char*) zone_name);
 
@@ -540,7 +553,7 @@ gboolean thd_dbus_interface_add_cooling_device(PrefObject *obj,
 		gint step, GError **error) {
 	int ret;
 
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	thd_log_debug("thd_dbus_interface_add_cooling_device %s\n",
 			(char*) cdev_name);
@@ -561,7 +574,7 @@ gboolean thd_dbus_interface_add_cooling_device(PrefObject *obj,
 gboolean thd_dbus_interface_update_cooling_device(PrefObject *obj,
 		gchar *cdev_name, gchar *path, gint min_state, gint max_state,
 		gint step, GError **error) {
-	g_assert(obj != NULL);
+	g_assert(obj != nullptr);
 
 	// Using a device in /etc is a security issue
 	if ((strlen(path) >= strlen("/etc")) && !strncmp(path, "/etc",
@@ -594,15 +607,15 @@ extern gint own_id;
 static GDBusNodeInfo *
 thd_dbus_load_introspection(const gchar *filename, GError **error)
 {
-	g_autoptr(GBytes) data = NULL;
-	g_autofree gchar *path = NULL;
+	g_autoptr(GBytes) data = nullptr;
+	g_autofree gchar *path = nullptr;
 
-	path = g_build_filename("/org/freedesktop/thermald", filename, NULL);
+	path = g_build_filename("/org/freedesktop/thermald", filename, nullptr);
 	data = g_resources_lookup_data(path, G_RESOURCE_LOOKUP_FLAGS_NONE, error);
-	if (data == NULL)
-		return NULL;
+	if (data == nullptr)
+		return nullptr;
 
-	return g_dbus_node_info_new_for_xml((gchar *)g_bytes_get_data(data, NULL), error);
+	return g_dbus_node_info_new_for_xml((gchar *)g_bytes_get_data(data, nullptr), error);
 }
 
 
@@ -617,13 +630,35 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			    gpointer               user_data)
 {
 	PrefObject *obj = PREF_OBJECT(user_data);
-	g_autoptr(GError) error = NULL;
+	g_autoptr(GError) error = nullptr;
+	auto return_dbus_error = [&](const gchar *failed_method) {
+		if (error != nullptr) {
+			g_dbus_method_invocation_return_gerror(invocation, error);
+			return;
+		}
+
+		g_dbus_method_invocation_return_error(invocation,
+						      G_DBUS_ERROR,
+						      G_DBUS_ERROR_FAILED,
+						      "%s failed",
+						      failed_method);
+	};
 	
 	thd_log_debug("Dbus method called %s %s.\n", interface_name, method_name);
 
+	if (thd_engine->check_feature(DBUS_CONTROL) == 0) {
+		thd_log_info("Dbus control support is disabled by config file\n");
+		GError *error = g_error_new(G_DBUS_ERROR,
+                            G_DBUS_ERROR_FAILED,
+                            "DBUS control support is disabled by config file");
+		g_dbus_method_invocation_return_gerror(invocation, error);
+		g_error_free(error);
+		return;
+	}
+
 	if (g_strcmp0(method_name, "AddCoolingDevice") == 0) {
-		g_autofree gchar *cdev_name = NULL;
-		g_autofree gchar *path = NULL;
+		g_autofree gchar *cdev_name = nullptr;
+		g_autofree gchar *path = nullptr;
 		gint min_state;
 		gint max_state;
 		gint step;
@@ -638,13 +673,13 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "AddSensor") == 0) {
-		g_autofree gchar *sensor_name = NULL;
-		g_autofree gchar *path = NULL;
+		g_autofree gchar *sensor_name = nullptr;
+		g_autofree gchar *path = nullptr;
 
 		g_variant_get(parameters, "(ss)", &sensor_name, &path);
 
@@ -654,15 +689,15 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "AddTripPoint") == 0) {
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		guint trip_point_temp;
-		g_autofree gchar *trip_point_sensor = NULL;
-		g_autofree gchar *trip_point_cdev = NULL;
+		g_autofree gchar *trip_point_sensor = nullptr;
+		g_autofree gchar *trip_point_cdev = nullptr;
 
 		g_variant_get(parameters, "(suss)", &zone_name, &trip_point_temp,
 			       &trip_point_sensor, &trip_point_cdev);
@@ -673,13 +708,13 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "AddVirtualSensor") == 0) {
-		g_autofree gchar *sensor_name = NULL;
-		g_autofree gchar *dep_sensor = NULL;
+		g_autofree gchar *sensor_name = nullptr;
+		g_autofree gchar *dep_sensor = nullptr;
 		gdouble slope;
 		gdouble intercept;
 
@@ -693,15 +728,15 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "AddZonePassive") == 0) {
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		gint trip_point_temp;
-		g_autofree gchar *trip_point_sensor = NULL;
-		g_autofree gchar *trip_point_cdev = NULL;
+		g_autofree gchar *trip_point_sensor = nullptr;
+		g_autofree gchar *trip_point_cdev = nullptr;
 
 		g_variant_get(parameters, "(suss)", &zone_name, &trip_point_temp,
 			      &trip_point_sensor, &trip_point_cdev);
@@ -713,12 +748,12 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "DeleteTripPoint") == 0) {
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		guint trip_point_temp;
 
 		g_variant_get(parameters, "(su)", &zone_name, &trip_point_temp);
@@ -729,12 +764,12 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "DeleteZone") == 0) {
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 
 		g_variant_get(parameters, "(s)", &zone_name);
 
@@ -744,12 +779,12 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "DisableCoolingDevice") == 0) {
-		g_autofree gchar *cdev_name = NULL;
+		g_autofree gchar *cdev_name = nullptr;
 
 		g_variant_get(parameters, "(s)", &cdev_name);
 
@@ -759,7 +794,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 			g_dbus_method_invocation_return_gerror(invocation, error);
 			return;
 		}
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
@@ -780,7 +815,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 	if (g_strcmp0(method_name, "GetCdevInformation") == 0) {
 		gint ret;
 		gint index;
-		g_autofree gchar *cdev_out = NULL;
+		g_autofree gchar *cdev_out = nullptr;
 		gint min_state;
 		gint max_state;
 		gint curr_state;
@@ -792,7 +827,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 							      &curr_state, &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetCdevInformation");
 			return;
 		}
 
@@ -805,13 +840,13 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 
 	if (g_strcmp0(method_name, "GetCurrentPreference") == 0) {
 		gboolean ret;
-		g_autofree gchar *cur_pref = NULL;
+		g_autofree gchar *cur_pref = nullptr;
 
 		ret = thd_dbus_interface_get_current_preference(obj, &cur_pref,
 								&error);
 		
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetCurrentPreference");
 			return;
 		}
 
@@ -827,7 +862,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 		ret = thd_dbus_interface_get_sensor_count(obj, &count, &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetSensorCount");
 			return;
 		}
 
@@ -839,8 +874,8 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 	if (g_strcmp0(method_name, "GetSensorInformation") == 0) {
 		gboolean ret;
 		gint index;
-		g_autofree gchar *sensor_out = NULL;
-		g_autofree gchar *path = NULL;
+		g_autofree gchar *sensor_out = nullptr;
+		g_autofree gchar *path = nullptr;
 		gint temp;
 
 		g_variant_get(parameters, "(u)", &index);
@@ -849,7 +884,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 								&path, &temp, &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetSensorInformation");
 			return;
 		}
 
@@ -870,7 +905,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 								&error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetSensorTemperature");
 			return;
 		}
 
@@ -886,7 +921,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 		ret = thd_dbus_interface_get_zone_count(obj, &count, &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetZoneCount");
 			return;
 		}
 
@@ -898,7 +933,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 	if (g_strcmp0(method_name, "GetZoneInformation") == 0) {
 		gboolean ret;
 		gint index;
-		g_autofree gchar *zone_out = NULL;
+		g_autofree gchar *zone_out = nullptr;
 		gint sensor_count;
 		gint trip_count;
 		gint bound;
@@ -910,7 +945,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 							       &bound, &error);
 		
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetZoneInformation");
 			return;
 		}
 
@@ -926,7 +961,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 		gboolean ret;
 		gint zone_index;
 		gint sensor_index;
-		g_autofree gchar *sensor_out = NULL;
+		g_autofree gchar *sensor_out = nullptr;
 
 		g_variant_get(parameters, "(uu)", &zone_index, &sensor_index);
 
@@ -935,7 +970,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 								  &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetZoneSensorAtIndex");
 			return;
 		}
 
@@ -946,7 +981,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 
 	if (g_strcmp0(method_name, "GetZoneStatus") == 0) {
 		gboolean ret;
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		gint status;
 
 		g_variant_get(parameters, "(s)", &zone_name);
@@ -955,7 +990,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 							 &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetZoneStatus");
 			return;
 		}
 
@@ -972,10 +1007,10 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 		gint trip_type;
 		gint sensor_id;
 		gint cdev_size;
-		g_autoptr(GArray) cdev_ids = NULL;
-		g_autoptr(GVariantBuilder) builder = NULL;
+		g_autoptr(GArray) cdev_ids = nullptr;
+		g_autoptr(GVariantBuilder) builder = nullptr;
 		GVariant **tmp;
-		GVariant *array = NULL;
+		GVariant *array = nullptr;
 
 
 		g_variant_get(parameters, "(uu)", &zone_index, &trip_index);
@@ -985,7 +1020,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 							        &cdev_size, &cdev_ids, &error);
 
 		if (error || !ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("GetZoneTripAtIndex");
 			return;
 		}
 
@@ -1013,32 +1048,32 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 		thd_dbus_interface_reinit(obj, &error);
 
 		g_dbus_method_invocation_return_value(invocation,
-						      NULL);
+						      nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "SetCurrentPreference") == 0) {
 		gboolean ret;
-		g_autofree gchar *pref = NULL;
+		g_autofree gchar *pref = nullptr;
 
 		g_variant_get(parameters, "(s)", &pref);
 
 		ret = thd_dbus_interface_set_current_preference(obj, pref, &error);
 
 		if (!ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("SetCurrentPreference");
 			return;
 		}
 
 		g_dbus_method_invocation_return_value(invocation,
-						      NULL);
+						      nullptr);
 
 		return;
 	}
 
 	if (g_strcmp0(method_name, "SetUserMaxTemperature") == 0) {
 		gboolean ret;
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		guint user_set_point_in_milli_degree_celsius;
 
 		g_variant_get(parameters, "(su)", &zone_name,
@@ -1049,7 +1084,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 								  &error);
 		
 		if (!ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("SetUserMaxTemperature");
 			return;
 		}
 		return;
@@ -1057,7 +1092,7 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 
 	if (g_strcmp0(method_name, "SetUserPassiveTemperature") == 0) {
 		gboolean ret;
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		guint user_set_point_in_milli_degree_celsius;
 
 		g_variant_get(parameters, "(su)", &zone_name,
@@ -1067,17 +1102,17 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 								      user_set_point_in_milli_degree_celsius,
 								      &error);
 		if (!ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("SetUserPassiveTemperature");
 			return;
 		}
 
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "SetZoneStatus") == 0) {
 		gboolean ret;
-		g_autofree gchar *zone_name = NULL;
+		g_autofree gchar *zone_name = nullptr;
 		gint status;
 
 		g_variant_get(parameters, "(si)", &zone_name, &status);
@@ -1086,24 +1121,24 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 							 &error);
 
 		if (!ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("SetZoneStatus");
 			return;
 		}
 
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "Terminate") == 0) {
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		thd_dbus_interface_terminate(obj, &error);
 		return;
 	}
 
 	if (g_strcmp0(method_name, "UpdateCoolingDevice") == 0) {
 		gboolean ret;
-		g_autofree gchar *cdev_name = NULL;
-		g_autofree gchar *path = NULL;
+		g_autofree gchar *cdev_name = nullptr;
+		g_autofree gchar *path = nullptr;
 		gint min_state;
 		gint max_state;
 		gint step;
@@ -1116,11 +1151,11 @@ thd_dbus_handle_method_call(GDBusConnection       *connection,
 							       step, &error);
 		
 		if (!ret) {
-			g_dbus_method_invocation_return_gerror(invocation, error);
+			return_dbus_error("UpdateCoolingDevice");
 			return;
 		}
 
-		g_dbus_method_invocation_return_value(invocation, NULL);
+		g_dbus_method_invocation_return_value(invocation, nullptr);
 		return;
 	}
 
@@ -1141,7 +1176,7 @@ thd_dbus_handle_get_property(GDBusConnection  *connection,
 			     GError          **error,
 			     gpointer          user_data)
 {
-	return NULL;
+	return nullptr;
 }
 
 static gboolean
@@ -1162,18 +1197,18 @@ thd_dbus_on_bus_acquired(GDBusConnection *connection,
 			 const gchar     *name,
 			 gpointer         user_data) {
 	guint registration_id;
-	GDBusProxy *proxy_id = NULL;
-	GError *error = NULL;
-	GDBusNodeInfo *introspection_data = NULL;
+	GDBusProxy *proxy_id = nullptr;
+	GError *error = nullptr;
+	GDBusNodeInfo *introspection_data = nullptr;
 
-	if (user_data == NULL) {
-		thd_log_error("user_data is NULL\n");
+	if (user_data == nullptr) {
+		thd_log_error("user_data is nullptr\n");
 		return;
 	}
 
 	introspection_data = thd_dbus_load_introspection("src/thd_dbus_interface.xml",
 							 &error);
-	if (introspection_data == NULL || error != NULL) {
+	if (introspection_data == nullptr || error != nullptr) {
 		thd_log_error("Couldn't create introspection data: %s:\n",
 			      error->message);
 		return;
@@ -1184,19 +1219,19 @@ thd_dbus_on_bus_acquired(GDBusConnection *connection,
 							    introspection_data->interfaces[0],
 							    &interface_vtable,
 							    user_data,
-							    NULL,
+							    nullptr,
 							    &error);
 
 	proxy_id = g_dbus_proxy_new_sync(connection,
 					 G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
-					 NULL,
+					 nullptr,
 					 "org.freedesktop.DBus",
 					 "/org/freedesktop/DBus",
 					 "org.freedesktop.DBus",
-					 NULL,
+					 nullptr,
 					 &error);
 	g_assert(registration_id > 0);
-	g_assert(proxy_id != NULL);
+	g_assert(proxy_id != nullptr);
 }
 
 static void
@@ -1219,8 +1254,8 @@ thd_dbus_on_name_lost(GDBusConnection *connection,
 int thd_dbus_server_init(gboolean (*exit_handler)(void)) {
 	PrefObject *value_obj;
 
-	value_obj = PREF_OBJECT(g_object_new(PREF_TYPE_OBJECT, NULL));
-	if (value_obj == NULL) {
+	value_obj = PREF_OBJECT(g_object_new(PREF_TYPE_OBJECT, nullptr));
+	if (value_obj == nullptr) {
 		thd_log_error("Failed to create one Value instance:\n");
 		return THD_FATAL_ERROR;
 	}
@@ -1238,7 +1273,7 @@ int thd_dbus_server_init(gboolean (*exit_handler)(void)) {
 				thd_dbus_on_name_acquired,
 				thd_dbus_on_name_lost,
 				g_object_ref(value_obj),
-				NULL);
+				nullptr);
 	
 	return THD_SUCCESS;
 }
@@ -1248,14 +1283,14 @@ int thd_dbus_server_init(gboolean (*exit_handler)(void)) {
 int thd_dbus_server_init(gboolean (*exit_handler)(void)) {
 	DBusGConnection *bus;
 	DBusGProxy *bus_proxy;
-	GError *error = NULL;
+	GError *error = nullptr;
 	guint result;
 	PrefObject *value_obj;
 
 	thd_dbus_exit_callback = exit_handler;
 
 	bus = dbus_g_bus_get(DBUS_BUS_SYSTEM, &error);
-	if (error != NULL) {
+	if (error != nullptr) {
 		thd_log_error("Couldn't connect to session bus: %s:\n", error->message);
 		return THD_FATAL_ERROR;
 	}
@@ -1263,7 +1298,7 @@ int thd_dbus_server_init(gboolean (*exit_handler)(void)) {
 	// Get a bus proxy instance
 	bus_proxy = dbus_g_proxy_new_for_name(bus, DBUS_SERVICE_DBUS,
 			DBUS_PATH_DBUS, DBUS_INTERFACE_DBUS);
-	if (bus_proxy == NULL) {
+	if (bus_proxy == nullptr) {
 		thd_log_error("Failed to get a proxy for D-Bus:\n");
 		return THD_FATAL_ERROR;
 	}
@@ -1282,8 +1317,8 @@ int thd_dbus_server_init(gboolean (*exit_handler)(void)) {
 		thd_log_error("Failed to get the primary well-known name:\n");
 		return THD_FATAL_ERROR;
 	}
-	value_obj = (PrefObject*) g_object_new(PREF_TYPE_OBJECT, NULL);
-	if (value_obj == NULL) {
+	value_obj = (PrefObject*) g_object_new(PREF_TYPE_OBJECT, nullptr);
+	if (value_obj == nullptr) {
 		thd_log_error("Failed to create one Value instance:\n");
 		return THD_FATAL_ERROR;
 	}

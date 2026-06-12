@@ -60,12 +60,26 @@ typedef struct {
 } thermal_sensor_link_t;
 
 typedef struct {
+	std::string name;
+	double coeff;
+	double offset;
+	int power_sensor;
+} thermal_sensor_target_t;
+
+typedef struct {
+	int virtual_temp;
+	int sample_period;
+} thermal_sensor_polling_t;
+
+typedef struct {
 	unsigned int mask;
 	std::string name;
 	std::string path;
 	bool async_capable;
 	bool virtual_sensor;
 	thermal_sensor_link_t sensor_link;
+	std::vector<thermal_sensor_target_t> link_sensors;
+	std::vector<thermal_sensor_polling_t> polling_table;
 } thermal_sensor_t;
 
 typedef struct {
@@ -81,6 +95,9 @@ typedef struct {
 	int target_state_valid;
 	int target_state;
 	pid_param_t pid_param;
+	int min_max_valid;
+	int target_min_state;
+	int target_max_state;
 } trip_cdev_t;
 
 typedef struct {
@@ -99,7 +116,7 @@ typedef struct {
 	std::vector<trip_point_t> trip_pts;
 } thermal_zone_t;
 
-typedef enum {
+typedef enum : uint8_t {
 	ABSOULUTE_VALUE, RELATIVE_PERCENTAGES
 } unit_value_t;
 
@@ -183,6 +200,10 @@ private:
 			thermal_sensor_t *info_ptr);
 	int parse_new_sensor_link(xmlNode * a_node, xmlDoc *doc,
 			thermal_sensor_link_t *info_ptr);
+	int parse_new_virtual_sensor_target(xmlNode * a_node, xmlDoc *doc,
+			thermal_sensor_target_t *info_ptr);
+	int parse_new_virtual_sensor_polling(xmlNode * a_node, xmlDoc *doc,
+			thermal_sensor_polling_t *info_ptr);
 	int parse_thermal_sensors(xmlNode * a_node, xmlDoc *doc,
 			thermal_info_t *info_ptr);
 	int parse_cooling_devs(xmlNode * a_node, xmlDoc *doc,
@@ -195,6 +216,8 @@ private:
 
 	void string_trim(std::string &str);
 	char *char_trim(char *trim);
+	int parse_int_value(const char *str, int *result, int min_val, int max_val);
+	int parse_double_value(const char *str, double *result, double min_val, double max_val);
 	bool match_product_sku(int index);
 
 public:

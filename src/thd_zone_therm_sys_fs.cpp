@@ -24,7 +24,9 @@
 
 #include "thd_zone_therm_sys_fs.h"
 #include "thd_engine.h"
+#include "thd_util.h"
 #include <stdlib.h>
+#include <limits.h>
 
 cthd_sysfs_zone::cthd_sysfs_zone(int count, std::string path) :
 		cthd_zone(count, std::move(path)), trip_point_cnt(0) {
@@ -93,6 +95,7 @@ int cthd_sysfs_zone::read_trip_points() {
 		temp_stream << trip_sysfs.str() << i << "_temp";
 		if (zone_sysfs.exists(temp_stream.str())) {
 			mode = zone_sysfs.get_mode(temp_stream.str());
+			temp = 0;  // Initialize before read
 			int ret = zone_sysfs.read(temp_stream.str(), &temp);
 			if (ret < 0)
 				return ret;
@@ -102,6 +105,7 @@ int cthd_sysfs_zone::read_trip_points() {
 
 		hist_stream << trip_sysfs.str() << i << "_hyst";
 		if (zone_sysfs.exists(hist_stream.str())) {
+			hyst = 0;  // Initialize before read
 			int ret = zone_sysfs.read(hist_stream.str(), &hyst);
 			if (ret < 0)
 				return ret;
@@ -172,6 +176,7 @@ int cthd_sysfs_zone::read_cdev_trip_points() {
 		char buf[51], *ptr;
 		trip_pt_stream << cdev_sysfs.str() << i << "_trip_point";
 
+		trip_cnt = 0;  // Initialize before read
 		if (zone_sysfs.exists(trip_pt_stream.str())) {
 			int ret = zone_sysfs.read(trip_pt_stream.str(), &trip_cnt);
 			if (ret < 0)
@@ -191,8 +196,14 @@ int cthd_sysfs_zone::read_cdev_trip_points() {
 					ptr += strlen("cooling_device");
 					thd_log_debug("symbolic name %s:%s\n", buf, ptr);
 					if (trip_cnt >= 0 && trip_cnt < trip_point_cnt) {
+						// Safe integer parsing for cooling device ID
+						int cdev_id;
+						if (parse_int_value(std::string(ptr), &cdev_id, 0, INT_MAX) != 0) {
+							thd_log_debug("Invalid cooling device ID\n");
+							continue;
+						}
 						trip_points[trip_cnt].thd_trip_point_add_cdev_index(
-								atoi(ptr), cthd_trip_point::default_influence);
+								cdev_id, cthd_trip_point::default_influence);
 						zone_cdev_set_binded();
 					} else {
 						thd_log_debug("Invalid trip_cnt\n");

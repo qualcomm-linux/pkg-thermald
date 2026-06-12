@@ -111,6 +111,7 @@ int cthd_intel_p_state_cdev::update() {
 
 	tc_state_dev << "/max_perf_pct";
 	if (cdev_sysfs.exists(tc_state_dev.str())) {
+		curr_state = 0;  // Initialize before read
 		int ret = cdev_sysfs.read(tc_state_dev.str(), &curr_state);
 		if (ret < 0)
 			return ret;
