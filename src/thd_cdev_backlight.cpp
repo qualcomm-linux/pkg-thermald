@@ -23,9 +23,9 @@
  */
 
 #include "thd_cdev_backlight.h"
-#define MAX_BACKLIGHT_DEV 4
 
-const std::string cthd_cdev_backlight::backlight_devices[MAX_BACKLIGHT_DEV] = {
+static constexpr int MAX_BACKLIGHT_DEV = 4;
+static constexpr const char *backlight_devices[MAX_BACKLIGHT_DEV] = {
 	            "/sys/class/backlight/intel_backlight/",
 	            "/sys/class/backlight/acpi_video0/",
 	            "/sys/class/leds/lcd-backlight/",
@@ -47,6 +47,7 @@ int cthd_cdev_backlight::update() {
 	int ret;
 
 	if (cdev_sysfs.exists()) {
+		max_state = 0;  // Initialize before read
 		ret = cdev_sysfs.read("max_brightness", &max_state);
 		if (ret < 0)
 			return ret;

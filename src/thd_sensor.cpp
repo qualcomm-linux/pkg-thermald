@@ -66,6 +66,7 @@ unsigned int cthd_sensor::read_temperature() {
 	int temp, ret;
 
 	thd_log_debug("read_temperature sensor ID %d\n", index);
+	temp = 0;  // Initialize before read
 	if (type == SENSOR_TYPE_THERMAL_SYSFS)
 		ret = sensor_sysfs.read("temp", &temp);
 	else

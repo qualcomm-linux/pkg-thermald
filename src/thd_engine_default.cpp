@@ -40,6 +40,9 @@
 #include "thd_int3400.h"
 #include "thd_sensor_rapl_power.h"
 #include "thd_zone_rapl_power.h"
+#include "thd_platform.h"
+#include "thd_platform_intel.h"
+#include "thd_util.h"
 
 
 // Default CPU cooling devices, which are not part of thermal sysfs
@@ -103,8 +106,8 @@ int cthd_engine_default::read_thermal_sensors() {
 	// Default CPU temperature zone
 	// Find path to read DTS temperature
 	for (i = 0; i < 2; ++i) {
-		if ((dir = opendir(base_path[i].c_str())) != NULL) {
-			while ((entry = readdir(dir)) != NULL) {
+		if ((dir = opendir(base_path[i].c_str())) != nullptr) {
+			while ((entry = readdir(dir)) != nullptr) {
 				if (!strncmp(entry->d_name, "coretemp.", strlen("coretemp."))
 						|| !strncmp(entry->d_name, "hwmon", strlen("hwmon"))) {
 
@@ -133,11 +136,11 @@ int cthd_engine_default::read_thermal_sensors() {
 					int len_temp_dir_entry = 0;
 					int len_input = strlen("_input");
 
-					if ((temp_dir = opendir(temp_dir_path.c_str())) != NULL) {
-						while ((temp_dir_entry = readdir(temp_dir)) != NULL) {
+					if ((temp_dir = opendir(temp_dir_path.c_str())) != nullptr) {
+						while ((temp_dir_entry = readdir(temp_dir)) != nullptr) {
 							len_temp_dir_entry = strlen(temp_dir_entry->d_name);
 							if ((len_temp_dir_entry >= len_input
-									&& !strcmp(
+									&& !thd_strcmp_n(
 											temp_dir_entry->d_name
 													+ len_temp_dir_entry
 													- len_input, "_input"))
@@ -195,18 +198,64 @@ int cthd_engine_default::read_thermal_sensors() {
 			} else {
 				std::unique_ptr<cthd_sensor> sensor_new;
 				if (sensor_config->virtual_sensor) {
-					std::unique_ptr<cthd_sensor_virtual> sensor_virt(new cthd_sensor_virtual(
-							index, sensor_config->name,
-							sensor_config->sensor_link.name,
-							sensor_config->sensor_link.multiplier,
-							sensor_config->sensor_link.offset));
+					std::unique_ptr<cthd_sensor_virtual> sensor_virt;
+					std::string dummy = "";
+
+					if (!sensor_config->link_sensors.empty()) {
+						sensor_virt.reset(new cthd_sensor_virtual(index,
+								sensor_config->name, dummy, 0, 0));
+
+						for (unsigned int j = 0;
+								j < sensor_config->link_sensors.size(); ++j) {
+							std::string target_name = sensor_config->link_sensors[j].name;
+
+							if (sensor_config->link_sensors[j].power_sensor) {
+								std::string name = "rapl_pkg_power";
+								if (!search_sensor(name)) {
+									std::unique_ptr<cthd_sensor_rapl_power> rapl_power(new cthd_sensor_rapl_power(index));
+									if (rapl_power->sensor_update() == THD_SUCCESS) {
+										sensors.push_back(std::move(rapl_power));
+										++index;
+									}
+								}
+							}
+
+							if (sensor_virt->add_target(target_name,
+									sensor_config->link_sensors[j].coeff,
+									sensor_config->link_sensors[j].offset,
+									sensor_config->link_sensors[j].power_sensor)
+									!= THD_SUCCESS) {
+								sensor_virt.reset();
+								break;
+							}
+						}
+					} else {
+						sensor_virt.reset(new cthd_sensor_virtual(index,
+								sensor_config->name,
+								sensor_config->sensor_link.name,
+								sensor_config->sensor_link.multiplier,
+								sensor_config->sensor_link.offset));
+					}
+
+					if (!sensor_virt)
+						continue;
+
+					for (unsigned int j = 0;
+							j < sensor_config->polling_table.size(); ++j) {
+						struct polling_table_entry entry;
+
+						entry.virtual_temp = sensor_config->polling_table[j].virtual_temp;
+						entry.sample_period = sensor_config->polling_table[j].sample_period;
+						sensor_virt->update_polling_table(entry);
+					}
 					if (sensor_virt->sensor_update() != THD_SUCCESS) {
 						continue;
 					}
+					if (sensor_config->polling_table.empty())
+						thd_log_info("No polling interval is defined\n");
 					sensor_new = std::move(sensor_virt);
 				} else {
-					std::string start("/sys/");
-					if (sensor_config->path.substr(0, start.length()) != start) {
+					if (!starts_with(sensor_config->path, "/sys/")) {
 						thd_log_debug( "Invalid sysfs path or allowed path %s\n",
 								sensor_config->path.c_str());
 						continue;
@@ -241,7 +290,7 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 		return false;
 
 	/* Specialized processor thermal device names */
-	cthd_zone *processor_thermal = NULL, *acpi_thermal = NULL;
+	cthd_zone *processor_thermal = nullptr, *acpi_thermal = nullptr;
 	cthd_INT3400 int3400(uuid);
 	unsigned int passive, new_passive = 0, critical = 0;
 
@@ -259,8 +308,8 @@ bool cthd_engine_default::add_int340x_processor_dev(void)
 		for (unsigned int i = 0; i < processor_thermal->get_trip_count(); ++i) {
 			cthd_trip_point *trip = processor_thermal->get_trip_at_index(i);
 			if (trip && trip->get_trip_type() == PASSIVE
-					&& (passive = trip->get_trip_temp())) {
-
+					&& (passive = trip->get_trip_temp())
+					&& passive > processor_thermal_min_passive) {
 				/* Need to honor ACPI _CRT, otherwise the system could be shut down by Linux kernel */
 				acpi_thermal = search_zone("acpitz");
 				if (acpi_thermal) {
@@ -366,8 +415,8 @@ int cthd_engine_default::read_thermal_zones() {
 		// Default CPU temperature zone
 		// Find path to read DTS temperature
 		for (i = 0; i < 2; ++i) {
-			if ((dir = opendir(base_path[i].c_str())) != NULL) {
-				while ((entry = readdir(dir)) != NULL) {
+			if ((dir = opendir(base_path[i].c_str())) != nullptr) {
+				while ((entry = readdir(dir)) != nullptr) {
 					if (!strncmp(entry->d_name, "coretemp.",
 							strlen("coretemp."))
 							|| !strncmp(entry->d_name, "hwmon",
@@ -478,7 +527,10 @@ int cthd_engine_default::read_thermal_zones() {
 										trip_pt_config.cdev_trips[j].sampling_period,
 										trip_pt_config.cdev_trips[j].target_state_valid,
 										trip_pt_config.cdev_trips[j].target_state,
-										&trip_pt_config.cdev_trips[j].pid_param);
+									&trip_pt_config.cdev_trips[j].pid_param,
+									trip_pt_config.cdev_trips[j].min_max_valid,
+									trip_pt_config.cdev_trips[j].target_min_state,
+									trip_pt_config.cdev_trips[j].target_max_state);
 								zone->zone_cdev_set_binded();
 								activate = true;
 							}
@@ -504,7 +556,10 @@ int cthd_engine_default::read_thermal_zones() {
 										trip_pt_config.cdev_trips[j].influence,
 										trip_pt_config.cdev_trips[j].sampling_period,
 										trip_pt_config.cdev_trips[j].target_state_valid,
-										trip_pt_config.cdev_trips[j].target_state) == THD_SUCCESS) {
+									trip_pt_config.cdev_trips[j].target_state,
+									trip_pt_config.cdev_trips[j].min_max_valid,
+									trip_pt_config.cdev_trips[j].target_min_state,
+									trip_pt_config.cdev_trips[j].target_max_state) == THD_SUCCESS) {
 									thd_log_debug(
 											"bind %s to trip to sensor %s\n",
 											cdev->get_cdev_type().c_str(),
@@ -591,8 +646,8 @@ int cthd_engine_default::add_replace_cdev(const cooling_dev_t *config) {
 		if (tmp->update() != THD_SUCCESS) {
 			return THD_ERROR;
 		}
-		cdev = tmp.get();
 		cdevs.push_back(std::move(tmp));
+		cdev = cdevs.back().get();
 		++current_cdev_index;
 	}
 
@@ -755,17 +810,20 @@ int cthd_engine_default::read_cooling_devices() {
 }
 
 // Thermal engine
-cthd_engine *thd_engine;
+std::unique_ptr<cthd_engine> thd_engine;
 
 int thd_engine_create_default_engine(bool ignore_cpuid_check,
 		bool exclusive_control, const char *conf_file) {
 	int res;
-	thd_engine = new cthd_engine_default();
+
+	thd_engine.reset(new cthd_engine_default());
 	if (!thd_engine)
 		return THD_ERROR;
 
 	if (exclusive_control)
 		thd_engine->set_control_mode(EXCLUSIVE);
+
+	thd_engine->thd_parse_features();
 
 	// Initialize thermald objects
 	thd_engine->set_poll_interval(thd_poll_interval);
@@ -778,6 +836,8 @@ int thd_engine_create_default_engine(bool ignore_cpuid_check,
 			thd_log_error("THD engine init failed\n");
 		else
 			thd_log_msg("THD engine init failed\n");
+
+		return res;
 	}
 
 	res = thd_engine->thd_engine_start();
@@ -793,9 +853,17 @@ int thd_engine_create_default_engine(bool ignore_cpuid_check,
 
 void cthd_engine_default::workarounds()
 {
+	if (!workaround_enabled)
+		return;
+
 	// Every 30 seconds repeat
 	if (!disable_active_power && !workaround_interval) {
-		workaround_rapl_mmio_power();
+		// Create platform instance and call workaround
+		std::unique_ptr<cthd_platform> platform = cthd_platform::create_platform();
+		if (platform) {
+			platform->workaround_rapl_mmio_power();
+		}
+
 		workaround_tcc_offset();
 		workaround_interval = 7;
 	} else {
@@ -803,75 +871,6 @@ void cthd_engine_default::workarounds()
 	}
 }
 
-#ifndef ANDROID
-#include <cpuid.h>
-#include <sys/mman.h>
-#define BIT_ULL(nr)	(1ULL << (nr))
-#endif
-
-void cthd_engine_default::workaround_rapl_mmio_power(void)
-{
-	if (!workaround_enabled)
-		return;
-
-	cthd_cdev *cdev = search_cdev("rapl_controller_mmio");
-	if (cdev) {
-		/* RAPL MMIO is enabled and getting used. No need to disable */
-		return;
-	} else {
-		csys_fs _sysfs("/sys/devices/virtual/powercap/intel-rapl-mmio/intel-rapl-mmio:0/");
-
-		if (_sysfs.exists()) {
-			std::ostringstream temp_str;
-
-			temp_str << "enabled";
-			if (_sysfs.write(temp_str.str(), 0) > 0)
-				return;
-
-			thd_log_debug("Failed to write to RAPL MMIO\n");
-		}
-	}
-
-#ifndef ANDROID
-	int map_fd;
-	void *rapl_mem;
-	unsigned char *rapl_pkg_pwr_addr;
-	unsigned long long pkg_power_limit;
-
-	unsigned int ebx, ecx, edx;
-	unsigned int fms, family, model;
-
-	ecx = edx = 0;
-	__cpuid(1, fms, ebx, ecx, edx);
-	family = (fms >> 8) & 0xf;
-	model = (fms >> 4) & 0xf;
-	if (family == 6 || family == 0xf)
-		model += ((fms >> 16) & 0xf) << 4;
-
-	// Apply for KabyLake only
-	if (model != 0x8e && model != 0x9e)
-		return;
-
-	map_fd = open("/dev/mem", O_RDWR, 0);
-	if (map_fd < 0)
-		return;
-
-	rapl_mem = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd,
-			0xfed15000);
-	if (!rapl_mem || rapl_mem == MAP_FAILED) {
-		close(map_fd);
-		return;
-	}
-
-	rapl_pkg_pwr_addr = ((unsigned char *)rapl_mem + 0x9a0);
-	pkg_power_limit = *(unsigned long long *)rapl_pkg_pwr_addr;
-	*(unsigned long long *)rapl_pkg_pwr_addr = pkg_power_limit
-			& ~BIT_ULL(15);
-
-	munmap(rapl_mem, 4096);
-	close(map_fd);
-#endif
-}
 
 void cthd_engine_default::workaround_tcc_offset(void)
 {

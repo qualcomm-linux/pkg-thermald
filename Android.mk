@@ -43,7 +43,13 @@ LOCAL_SRC_FILES := \
 		src/thd_engine_adaptive.cpp \
 		src/thd_lzma_dec.cpp \
 		src/LzmaDec.c \
-		src/thd_gddv.cpp
+		src/thd_gddv.cpp \
+		src/thd_platform.cpp \
+		src/thd_platform_intel.cpp \
+		src/thd_platform_arm.cpp \
+		src/thd_util.cpp \
+		src/thd_cdev_rapl_restore.cpp \
+		src/thd_features_parse.cpp
 
 LOCAL_C_INCLUDES += external/libxml2/include
 

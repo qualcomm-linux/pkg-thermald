@@ -26,6 +26,7 @@
 #define THD_ENGINE_H_
 
 #include <memory>
+#include <mutex>
 #include <pthread.h>
 #include <poll.h>
 #include <time.h>
@@ -39,11 +40,12 @@
 #include "thd_parse.h"
 #include "thd_kobj_uevent.h"
 #include "thd_rapl_power_meter.h"
+#include "thd_features_parse.h"
 
 #define MAX_MSG_SIZE 		512
 #define THD_NUM_OF_POLL_FDS	10
 
-typedef enum {
+typedef enum : uint8_t {
 	WAKEUP,
 	TERMINATE,
 	PREF_CHANGED,
@@ -57,7 +59,7 @@ typedef enum {
 
 // This defines whether the thermal control is entirely done by
 // this daemon or it just complements, what is done in kernel
-typedef enum {
+typedef enum : uint8_t {
 	COMPLEMENTRY, EXCLUSIVE,
 } control_mode_t;
 
@@ -66,11 +68,6 @@ typedef struct {
 	int msg_size;
 	unsigned long msg[MAX_MSG_SIZE];
 } message_capsul_t;
-
-typedef struct {
-	unsigned int family;
-	unsigned int model;
-} supported_ids_t;
 
 class cthd_engine {
 
@@ -100,7 +97,6 @@ private:
 	time_t thz_last_temp_ind_time;
 	time_t thz_last_update_event_time;
 	bool terminate;
-	int genuine_intel;
 	int has_invariant_tsc;
 	int has_aperf;
 	bool proc_list_matched;
@@ -114,10 +110,10 @@ private:
 	pthread_t thd_engine;
 	pthread_attr_t thd_attr;
 
-	pthread_mutex_t thd_engine_mutex;
+	std::mutex thd_engine_mutex;
 
 	std::vector<std::string> zone_preferences;
-	static const int thz_notify_debounce_interval = 3;
+	static constexpr int thz_notify_debounce_interval = 3;
 
 	struct pollfd poll_fds[THD_NUM_OF_POLL_FDS];
 	int poll_fd_cnt;
@@ -132,12 +128,14 @@ private:
 	void check_for_rt_kernel();
 
 public:
-	static const int max_thermal_zones = 10;
-	static const int max_cool_devs = 50;
-	static const int def_poll_interval = 4000;
-	static const int soft_cdev_start_index = 100;
+	static constexpr int max_thermal_zones = 10;
+	static constexpr int max_cool_devs = 50;
+	static constexpr int def_poll_interval = 4000;
+	static constexpr int soft_cdev_start_index = 100;
 
 	cthd_parse parser;
+	cthd_features_parse features_parser;
+
 	cthd_rapl_power_meter rapl_power_meter;
 
 	cthd_engine(std::string _uuid);
@@ -148,9 +146,11 @@ public:
 	control_mode_t get_control_mode() {
 		return control_mode;
 	}
+
 	void thd_engine_thread();
 	virtual int thd_engine_init(bool ignore_cpuid_check, bool adaptive = false);
 	virtual int thd_engine_start();
+	void thd_parse_features();
 	int thd_engine_stop();
 	int check_cpu_id();
 
@@ -203,7 +203,7 @@ public:
 		return parse_thermal_cdev_success;
 	}
 
-	static const int max_cpu_count = 64;
+	static constexpr int max_cpu_count = 64;
 
 	time_t last_cpu_update[max_cpu_count];
 	virtual bool apply_cpu_operation(int cpu) {
@@ -235,7 +235,7 @@ public:
 		return config_file;
 	}
 	virtual ppcc_t *get_ppcc_param(const std::string& name);
-	virtual int search_idsp(std::string name) {
+	virtual int search_idsp(const std::string& name) {
 		return THD_ERROR;
 	}
 	cthd_zone *search_zone(const std::string& name);
@@ -271,15 +271,15 @@ public:
 	}
 
 	void thd_engine_lock() {
-		pthread_mutex_lock(&thd_engine_mutex);
+		thd_engine_mutex.lock();
 	}
 
 	void thd_engine_unlock() {
-		pthread_mutex_unlock(&thd_engine_mutex);
+		thd_engine_mutex.unlock();
 	}
 
 	// User/External messages
-	int user_add_sensor(std::string name, std::string path);
+	int user_add_sensor(std::string name, const std::string& path);
 	cthd_sensor *user_get_sensor(unsigned int index);
 	cthd_zone *user_get_zone(unsigned int index);
 	int user_add_virtual_sensor(std::string name, std::string dep_sensor,
@@ -293,7 +293,7 @@ public:
 	int user_get_zone_status(const std::string& name, int *status);
 	int user_delete_zone(const std::string& name);
 
-	int user_add_cdev(std::string cdev_name, std::string cdev_path,
+	int user_add_cdev(std::string cdev_name, const std::string& cdev_path,
 			int min_state, int max_state, int step);
 	cthd_cdev *user_get_cdev(unsigned int index);
 
@@ -301,6 +301,15 @@ public:
 	int parser_init();
 	void parser_deinit();
 	int debug_mode_on(void);
+
+	int check_acpi_platform_profile();
+
+	int check_feature(thermald_feature_names_t feature) {
+		if (feature >= MAX_FEATURE) {
+			return THD_ERROR;
+		}
+		return features_parser.feature_list[feature];
+	}
 };
 
 #endif /* THD_ENGINE_H_ */

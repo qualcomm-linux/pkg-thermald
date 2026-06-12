@@ -11,14 +11,6 @@ Prerequisites:
 			Intel INT340X drivers
 			Intel RAPL-mmio power capping driver: Available from 5.3-rc1
 
-Companion tools
-	ThermalMonitor
-		Graphical front end for monitoring and control.
-		Source code is as part of tools folder in this git repository.
-	dptfxtract
-		Download from: https://github.com/intel/dptfxtract
-		This generates configuration files for thermald on some systems.
-
 Building and executing on Fedora
 1.
 Install
@@ -110,6 +102,34 @@ For build, follow the same procedure as Fedora.
 -------------------------------------------
 
 Releases
+
+Release 2.5.12
+- Platform and feature expansion: added ARM backend support, Intel platform refactoring,
+new CPU IDs including NovaLake variants, generic_os/data-vault path enhancements,
+and feature enable/disable via config.
+
+- Maintainability and tooling: significant modernization/cleanup (mutex to C++11,
+nullptr/constexpr, safer string helpers, clang-tidy/coverity fixes), plus CI and
+test/script cleanup and removal of deprecated dptfxtract references.
+
+- Data-vault and parser improvements: optimized config/data-vault read paths, sanitized
+firmware-sourced vault data, added structural checks for malformed tables, and
+improved parser reliability.
+
+- Adaptive/power control updates: adaptive-mode behavior was tightened
+(fail/exit paths, ignore-default-control handling), platform gating was improved
+(adaptive-only for select new CPUs), and RAPL handling improved with register
+store/restore on exit plus safer power-limit logic.
+
+- Security hardening: tightened D-Bus input validation and error handling,
+sanitized zone names/paths, restricted writes to sys, expanded O_NOFOLLOW usage,
+removed mem MMIO workaround, and added stronger XML/config file validation
+through a shared open_validated_xml_file() path.
+
+- Memory-safety and robustness: added broad range/bounds checks (sysfs, cpufreq, XML,
+APCT/IDSP/data vault), max limits for zones/cooling devices/segments/conditions,
+fixed lock/unlock and stale mutex issues, guarded container operations, and
+improved exception safety (e.g., unique_ptr use for virtual sensor links).
 
 Release 2.5.11
 - Clang-tidy fixes
