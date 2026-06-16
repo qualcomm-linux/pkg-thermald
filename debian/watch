@@ -1,14 +1,8 @@
-version=4
-opts="searchmode=plain,\
-filenamemangle=s%.*/@ANY_VERSION@%@PACKAGE@-$1.tar.gz%,\
-downloadurlmangle=s%api.%%;s%repos/%%;s%tarball/%%;\
-    s%@ANY_VERSION@%v$1.tar.gz%;\
-    s%(github.com/[^/]+/[^/]+/)%$1archive/refs/tags/%g,\
-pgpsigurlmangle=\
-	s%@ANY_VERSION@%v$1/thermal_daemon-$1%;\
-	s%.tar.gz%%;\
-	s%(github.com/[^/]+/[^/]+/)%$1releases/download/%;\
-	s%archive/refs/tags/%%;\
-	s%$%.asc%" \
-    https://api.github.com/repos/intel/thermal_daemon/releases?per_page=100 \
-    https://api.github.com/repos/intel/thermal_daemon/tarball/@ANY_VERSION@
+Version: 5
+
+Source: https://api.github.com/repos/intel/thermal_daemon/releases?per_page=100
+Matching-Pattern: https://api.github.com/repos/intel/thermal_daemon/tarball/@ANY_VERSION@
+Filenamemangle: s%@ANY_VERSION@%@PACKAGE@-$1.tar.gz%
+Downloadurlmangle: s%.*/@ANY_VERSION@$%https://github.com/intel/thermal_daemon/archive/refs/tags/v$1.tar.gz%
+Pgpsigurlmangle: s%.*/@ANY_VERSION@.tar.gz$%https://github.com/intel/thermal_daemon/releases/download/v$1/thermal_daemon-$1.tar.gz.asc%
+Searchmode: plain

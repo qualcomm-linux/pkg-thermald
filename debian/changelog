@@ -1,5 +1,6 @@
 thermald (2.5.12-1) UNRELEASED; urgency=medium
 
+  [ Lucas de Castro Borges ]
   * New upstream version 2.5.12
   * d/rules: cleaned out
   * d/control: 
@@ -19,6 +20,9 @@ thermald (2.5.12-1) UNRELEASED; urgency=medium
   * debian/upstream/:
     - Add metadata file
     - Add upstream pubkey for signature checking
+
+  [ Jeroen Ploemen ]
+  * Watch: bump to v5, simplify.
 
  -- Lucas de Castro Borges <lucas@gnuabordo.com.br>  Fri, 12 Jun 2026 15:47:15 -0300
 
