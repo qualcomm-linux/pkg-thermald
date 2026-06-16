@@ -1,2 +1,4 @@
 Repository: https://github.com/intel/thermal_daemon.git
 Repository-Browse: https://github.com/intel/thermal_daemon
+Bug-Database: https://github.com/intel/thermal_daemon/issues
+Bug-Submit: https://github.com/intel/thermal_daemon/issues/new

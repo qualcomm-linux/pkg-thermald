@@ -3,7 +3,7 @@ thermald (2.5.12-1) UNRELEASED; urgency=medium
   [ Lucas de Castro Borges ]
   * New upstream version 2.5.12
   * d/rules: cleaned out
-  * d/control: 
+  * d/control:
     -	Updated standards-version to 4.7.4
     -	B-D dropped libdbus-glib-1-dev (Closes: #955954)
   * Reintroduce sysv init script  (Closes: #885068)
@@ -16,13 +16,15 @@ thermald (2.5.12-1) UNRELEASED; urgency=medium
   * d/copyright updated:
     -	Fix source git url
     -   Add other upstream author
-  * Reintroduce sysv init script
   * debian/upstream/:
     - Add metadata file
     - Add upstream pubkey for signature checking
 
   [ Jeroen Ploemen ]
   * Watch: bump to v5, simplify.
+  * Rules: remove redundant --with autoreconf, default since compat 10.
+  * Copyright: add entry for
+    distribution_integration/chromeos_gentoo_ebuild_spec.
 
  -- Lucas de Castro Borges <lucas@gnuabordo.com.br>  Fri, 12 Jun 2026 15:47:15 -0300
 
