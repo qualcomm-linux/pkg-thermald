@@ -17,7 +17,7 @@ Vcs-Git: https://salsa.debian.org/debian/thermald.git
 Vcs-Browser: https://salsa.debian.org/debian/thermald
 
 Package: thermald
-Architecture: i386 amd64
+Architecture: i386 amd64 armhf arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Thermal monitoring and controlling daemon
  Thermal Daemon is a Linux daemon for monitoring and
