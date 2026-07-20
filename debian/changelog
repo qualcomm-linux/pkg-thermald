@@ -1,4 +1,4 @@
-thermald (2.5.6-1qcom1) unstable; urgency=medium
+thermald (2.5.12-1qli+staging1) unstable; urgency=medium
 
   * debian/patches/0001-add-qualcomm-spel-cooling-device-support.patch:
     Add Qualcomm SPEL cooling device support
