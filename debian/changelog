@@ -1,3 +1,15 @@
+thermald (2.5.6-1qcom1) unstable; urgency=medium
+
+  * debian/patches/0001-add-qualcomm-spel-cooling-device-support.patch:
+    Add Qualcomm SPEL cooling device support
+    (upstream commit fb130ee)
+  * debian/patches/0002-add-soc-model-matching-via-device-tree-for-arm-qualcomm.patch:
+    Add SoC model matching via device tree for ARM/Qualcomm platforms
+    (upstream commit a58b996)
+  * debian/gbp.conf: update debian-branch to qli-staging/debian/latest
+
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Mon, 20 Jul 2026 08:00:00 +0000
+
 thermald (2.5.12-1) unstable; urgency=medium
 
   [ Lucas de Castro Borges ]

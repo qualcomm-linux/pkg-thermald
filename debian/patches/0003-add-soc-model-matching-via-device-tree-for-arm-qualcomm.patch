@@ -1,0 +1,172 @@
+From a58b996c016914317ac3cd185d88c615dd85c17e Mon Sep 17 00:00:00 2001
+From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+Date: Thu, 2 Jul 2026 10:55:57 +0530
+Subject: [PATCH] Add SoC model matching via device tree for ARM/Qualcomm
+ platforms
+
+Origin: upstream, https://github.com/intel/thermal_daemon/commit/a58b996
+Forwarded: not-needed (already upstream)
+
+Add support for platform-specific thermal configuration matching using
+the device tree model string, enabling thermald to apply the correct
+thermal rules on ARM/Qualcomm SoCs.
+
+A new <SoCModel> XML element is introduced in thermal-conf.xml Platform
+entries. During platform matching, thermald reads the board model string
+from /sys/firmware/devicetree/base/model and performs a prefix match
+against the configured SoCModel value.
+
+Changes in v2:
+ - Add XML documentation for SocModel.
+ - Address review comments on logging and code style.
+
+Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+---
+ data/thermal-conf.xml  | 37 ++++++++++++++++++++++++++++++++++++-
+ man/thermal-conf.xml.5 |  8 ++++++++
+ src/thd_parse.cpp      | 29 +++++++++++++++++++++++++++++
+ src/thd_parse.h        |  1 +
+ 4 files changed, 74 insertions(+), 1 deletion(-)
+
+diff --git a/data/thermal-conf.xml b/data/thermal-conf.xml
+index be875dd..13516ac 100644
+--- a/data/thermal-conf.xml
++++ b/data/thermal-conf.xml
+@@ -6,6 +6,7 @@ use "man thermal-conf.xml" for details
+ 
+ <!-- BEGIN -->
+ <ThermalConfiguration>
++
+ <Platform>
+ 	<Name>Generic X86 Laptop Device</Name>
+ 	<ProductName>EXAMPLE_SYSTEM</ProductName>
+@@ -203,6 +204,40 @@ use "man thermal-conf.xml" for details
+ 		</CoolingDevice>
+ 	</CoolingDevices>
+ </Platform>
++<!-- Thermal configuration example for Qualcomm platforms using SoCModel.
++     SoCModel is matched as a prefix against /sys/firmware/devicetree/base/model.
++     e.g. "Qualcomm Technologies, Inc. Glymur CRD" will match
++          SoCModel "Qualcomm Technologies, Inc. Glymur"
++-->
++<Platform>
++	<Name>Qualcomm Glymur CRD Platform</Name>
++	<SoCModel>Qualcomm Technologies, Inc. Glymur CRD</SoCModel>
++	<Preference>QUIET</Preference>
++	<ThermalSensors>
++		<ThermalSensor>
++			<Type>cpu-thermal</Type>
++			<AsyncCapable>1</AsyncCapable>
++		</ThermalSensor>
++	</ThermalSensors>
++	<ThermalZones>
++		<ThermalZone>
++			<Type>cpu-thermal</Type>
++			<TripPoints>
++				<TripPoint>
++					<SensorType>cpu-thermal</SensorType>
++					<Temperature>85000</Temperature>
++					<type>passive</type>
++					<ControlType>SEQUENTIAL</ControlType>
++					<CoolingDevice>
++						<index>1</index>
++						<type>cpufreq</type>
++						<influence>100</influence>
++						<SamplingPeriod>10</SamplingPeriod>
++					</CoolingDevice>
++				</TripPoint>
++			</TripPoints>
++		</ThermalZone>
++	</ThermalZones>
++</Platform>
+ </ThermalConfiguration>
+ <!-- END -->
+-
+diff --git a/man/thermal-conf.xml.5 b/man/thermal-conf.xml.5
+index 75b828f..de1a63b 100644
+--- a/man/thermal-conf.xml.5
++++ b/man/thermal-conf.xml.5
+@@ -123,6 +123,14 @@ current virtual temperature.
+          set of tags defined to define platform, sensors, zones, cooling
+          devices and trip points. -->
+     <ProductName>Example Product Name</ProductName>
++    <!-- SoCModel is optional. When present, thermald reads the board
++         model string from /sys/firmware/devicetree/base/model and
++         checks whether it starts with this value (prefix match).
++         This is intended for ARM/device-tree platforms such as
++         Qualcomm SoCs. Example: a SoCModel of
++         "Qualcomm Technologies, Inc. Glymur" will match a board
++         reporting "Qualcomm Technologies, Inc. Glymur CRD". -->
++    <SoCModel>Example SoC Model Prefix</SoCModel>
+     <Preference>QUIET|PERFORMANCE</Preference>
+     <!-- Quiet mode will only use passive cooling device. "PERFORMANCE"
+          will only select active devices. -->
+diff --git a/src/thd_parse.cpp b/src/thd_parse.cpp
+index 114b450..ea80ced 100644
+--- a/src/thd_parse.cpp
++++ b/src/thd_parse.cpp
+@@ -811,6 +811,10 @@ int cthd_parse::parse_new_platform_info(xmlNode * a_node, xmlDoc *doc,
+ 					"ProductSku")) {
+ 				info_ptr->product_sku.assign((const char*) tmp_value);
+ 				string_trim(info_ptr->product_sku);
++			} else if (!thd_strcasecmp_n((const char*) cur_node->name,
++					"SoCModel")) {
++				info_ptr->soc_model.assign((const char*) tmp_value);
++				string_trim(info_ptr->soc_model);
+ 			} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Name")) {
+ 				info_ptr->name.assign((const char*) tmp_value);
+ 				string_trim(info_ptr->name);
+@@ -991,6 +995,7 @@ void cthd_parse::dump_thermal_conf() {
+ 		thd_log_info("Product Name: %s\n", thermal_info_list[i].product_name.c_str());
+ 		thd_log_info("Product SKU: %s\n", thermal_info_list[i].product_sku.c_str());
+ 		thd_log_info("UUID: %s\n", thermal_info_list[i].uuid.c_str());
++		thd_log_info("SoC Model: %s\n", thermal_info_list[i].soc_model.c_str());
+ 		thd_log_info("type: %d\n", thermal_info_list[i].default_preference);
+ 		thd_log_info("Polling Interval: %d seconds\n", thermal_info_list[i].polling_interval);
+ 
+@@ -1193,6 +1198,30 @@ bool cthd_parse::platform_matched() {
+ 			}
+ 		}
+ 	}
++
++	// Check SoC model via device tree (for ARM/Qualcomm platforms)
++	// /sys/firmware/devicetree/base/model contains the full board model string,
++	// e.g. "Qualcomm Technologies, Inc. Glymur CRD"
++	std::ifstream dt_model_file("/sys/firmware/devicetree/base/model");
++	if (dt_model_file.is_open() && getline(dt_model_file, line)) {
++		string_trim(line);
++		thd_log_debug("Device tree model: [%s]\n", line.c_str());
++		for (unsigned int i = 0; i < thermal_info_list.size(); ++i) {
++			if (!thermal_info_list[i].soc_model.size())
++				continue;
++			thd_log_debug("config SoCModel [%s] match with [%s]\n",
++					thermal_info_list[i].soc_model.c_str(), line.c_str());
++			// Prefix match: sysfs model string must start with the XML SoCModel value
++			if (line.compare(0, thermal_info_list[i].soc_model.size(),
++					thermal_info_list[i].soc_model) == 0) {
++				matched_thermal_info_index = i;
++				thd_log_info("SoC Model matched [%s]\n",
++						thermal_info_list[i].soc_model.c_str());
++				return true;
++			}
++		}
++	}
++
+ 	for (unsigned int i = 0; i < thermal_info_list.size(); ++i) {
+ 		if (!thermal_info_list[i].uuid.size())
+ 			continue;
+diff --git a/src/thd_parse.h b/src/thd_parse.h
+index 8d9160a..1821d6d 100644
+--- a/src/thd_parse.h
++++ b/src/thd_parse.h
+@@ -160,6 +160,7 @@ typedef struct {
+ 	std::string uuid;
+ 	std::string product_name;
+ 	std::string product_sku;
++	std::string soc_model;
+ 	int default_preference;
+ 	int polling_interval;
+ 	ppcc_t ppcc;
+-- 
+2.43.0
+
