@@ -1,0 +1,8 @@
+template for Debian
+-------------------
+
+Add package-specific notes here that don't belong in the changelog or
+man page: downstream patches, packaging quirks, deviations from upstream
+defaults, post-install configuration tips, etc.
+
+Delete this file if no such notes are needed for your package.

@@ -1,0 +1,23 @@
+Source: template
+Section: libs
+Maintainer: Maintainers.pkg-template <Maintainers.pkg-template@qualcomm.com>
+Uploaders:
+ FirstName LastName <user@oss.qualcomm.com>,
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.4
+Homepage: https://github.com/qualcomm-linux/<upstream>
+Vcs-Browser: https://github.com/qualcomm-linux/pkg-<upstream>
+Vcs-Git: https://github.com/qualcomm-linux/pkg-<upstream>.git
+
+Package: template1
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Template package
+ This is an example package to demonstrate the Qualcomm OSS development flow
+
+Package: template-dev
+Section: libdevel
+Architecture: any
+Depends: template1 (= ${binary:Version}), ${misc:Depends}
+Description: Template package dev
+ This is an example package to demonstrate the Qualcomm OSS development flow
