@@ -1,12 +1,12 @@
 
-thermald (2.5.12-1qli+staging1) UNRELEASED; urgency=medium
+thermald (2.5.12-1qli+staging2) UNRELEASED; urgency=medium
 
-  * debian\patches\0004-thermald-PID-fix-inverted-range-control-and-add-incr.patch:
+  * debian/patches/0004-thermald-PID-fix-inverted-range-control-and-add-incr.patch:
     thermald : PID fix inverted-range control and add incremental PID mode 
 
  -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Wed, 29 Jul 2026 16:47:48 +0530
 
-thermald (2.5.12-1qli+staging1) unstable; urgency=medium
+thermald (2.5.12-1qli+staging1) UNRELEASED; urgency=medium
 
   * debian/patches/0001-add-qualcomm-spel-cooling-device-support.patch:
     Add Qualcomm SPEL cooling device support
@@ -14,7 +14,7 @@ thermald (2.5.12-1qli+staging1) unstable; urgency=medium
   * debian/patches/0002-add-soc-model-matching-via-device-tree-for-arm-qualcomm.patch:
     Add SoC model matching via device tree for ARM/Qualcomm platforms
     (upstream commit a58b996)
-  * debian/gbp.conf: update debian-branch to qli-staging/debian/latest
+  * debian/gbp.conf: update debian-branch to qli-staging/debian/trixie
 
  -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Mon, 20 Jul 2026 08:00:00 +0000
 
