@@ -1,0 +1,495 @@
+From e985c375b03e7ae04275980258f8eba6fb44c24a Mon Sep 17 00:00:00 2001
+From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+Date: Mon, 13 Jul 2026 15:25:06 +0530
+Subject: [PATCH] thermald : PID fix inverted-range control and add incremental
+ PID mode
+
+Origin: https://github.com/intel/thermal_daemon/pull/587
+Forwarded: https://github.com/intel/thermal_daemon/pull/587
+Applied-Upstream: not yet
+Last-Update: 2026-07-29
+
+Power-limit devices (RAPL, SPEL) use an inverted state range where
+min_state is the maximum allowed power and max_state is the minimum.
+This patch fixes PID control for such devices and adds an incremental
+PID mode.
+
+- Negate PID output for inverted-range devices so a positive error
+  (temp > target) reduces the power limit (thd_cdev.cpp)
+- Bypass in_max_state() guard for PID on inverted-range devices so
+  the controller keeps running after hitting max restriction
+  (thd_trip_point.cpp)
+- Fix unsigned subtraction wrap-around in pid_output() (thd_pid.cpp)
+- Add PID_INCREMENTAL mode: same formula as absolute but applied to
+  curr_state instead of min_state, so the power limit keeps decreasing
+  each poll while temperature stays above the trip threshold
+- Extend XML PID gain range from [0, 100] to [0, 1000] to support
+  temperature-to-power mappings (thd_parse.cpp)
+- Add <PidMode>incremental</PidMode> XML element to select the mode
+
+Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+---
+ src/thd_cdev.cpp           | 80 +++++++++++++++++++++++++++++++++-----
+ src/thd_cdev.h             |  5 +++
+ src/thd_engine_default.cpp |  5 ++-
+ src/thd_parse.cpp          | 26 ++++++++++---
+ src/thd_parse.h            |  1 +
+ src/thd_pid.cpp            | 64 ++++++++++++++++++++----------
+ src/thd_pid.h              | 29 +++++++++++++-
+ src/thd_trip_point.cpp     | 20 ++++++++--
+ src/thd_trip_point.h       |  1 +
+ 9 files changed, 187 insertions(+), 44 deletions(-)
+
+diff --git a/src/thd_cdev.cpp b/src/thd_cdev.cpp
+index 165e5fb..b873b55 100644
+--- a/src/thd_cdev.cpp
++++ b/src/thd_cdev.cpp
+@@ -475,10 +475,44 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
+ 		ret = THD_SUCCESS;
+ 
+ 	} else if (pid_param && pid_param->valid) {
+-		// Handle PID param unique to a trip
+ 		pid.set_target_temp(target_temp);
+-		ret = pid.pid_output(temperature, get_curr_state(true) - get_min_state());
+-		ret += get_min_state();
++		bool inverted = (get_min_state() > get_max_state());
++
++		if (pid_param->mode == PID_INCREMENTAL) {
++			/*
++			 * Incremental PID: same formula as absolute (Kp*e + Ki*∫e + Kd*de/dt)
++			 * but anchored to curr_state instead of min_state.
++			 *
++			 * Active (state=1):
++			 *   new_state = curr_state - pid_output   (inverted range)
++			 *   new_state = curr_state + pid_output   (normal range)
++			 *   → power limit keeps decreasing each poll while temp > target
++			 *
++			 * Deactivating (state=0):
++			 *   Restore to min_state (no restriction) and reset PID.
++			 *   This avoids leaving the power limit partially reduced
++			 *   after the trip threshold is no longer exceeded.
++			 */
++			if (state == 0) {
++				ret = get_min_state();
++			} else {
++				ret = pid.pid_output(temperature, 0);
++				if (inverted)
++					ret = -ret;
++				ret += get_curr_state();
++			}
++		} else {
++			/* Absolute PID: output is the desired offset from min_state */
++			int initial_val = get_curr_state(true) - get_min_state();
++			if (inverted)
++				initial_val = -initial_val;
++			ret = pid.pid_output(temperature, initial_val);
++			if (inverted)
++				ret = -ret;
++			ret += get_min_state();
++		}
++
++		/* Clamp to valid state range (handles both normal and inverted) */
+ 		if (get_min_state() < get_max_state()) {
+ 			if (ret > get_max_state())
+ 				ret = get_max_state();
+@@ -491,18 +525,41 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
+ 				ret = get_min_state();
+ 		}
+ 		set_curr_state_raw(ret, state);
+-		thd_log_info("Set pid : %d, %d, %d, %d, %d\n", set_point, temperature,
+-				index, get_curr_state(), max_state);
++		thd_log_info("Set pid(%s%s): set_pt:%d temp:%d cdev:%d(%s) state:%d max:%d\n",
++				pid_param->mode == PID_INCREMENTAL ? "inc" : "abs",
++				inverted ? ",inv" : "",
++				set_point, temperature, index, type_str.c_str(),
++				get_curr_state(), max_state);
+ 		ret = THD_SUCCESS;
+ 
+ 		if (state == 0)
+ 			pid.reset();
+ 
+ 	} else if (pid_enable) {
+-		// Handle PID param common to whole cooling device
++		/* Cdev-level PID (enabled via enable_pid() / XML <PidControl> in
++		 * <CoolingDevice> section).  Same Fix 1 + incremental logic as
++		 * the trip-level PID branch above. */
+ 		pid_ctrl.set_target_temp(target_temp);
+-		ret = pid_ctrl.pid_output(temperature);
+-		ret += get_min_state();
++		bool inverted = (get_min_state() > get_max_state());
++
++		if (pid_ctrl.get_pid_mode() == PID_INCREMENTAL) {
++			if (state == 0) {
++				ret = get_min_state();
++			} else {
++				ret = pid_ctrl.pid_output(temperature, 0);
++				if (inverted)
++					ret = -ret;
++				ret += get_curr_state();
++			}
++		} else {
++			int initial_val = get_curr_state(true) - get_min_state();
++			if (inverted)
++				initial_val = -initial_val;
++			ret = pid_ctrl.pid_output(temperature, initial_val);
++			if (inverted)
++				ret = -ret;
++			ret += get_min_state();
++		}
+ 
+ 		if (get_min_state() < get_max_state()) {
+ 			if (ret > get_max_state())
+@@ -517,8 +574,11 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
+ 		}
+ 
+ 		set_curr_state_raw(ret, state);
+-		thd_log_info("Set : %d, %d, %d, %d, %d\n", set_point, temperature,
+-				index, get_curr_state(), max_state);
++		thd_log_info("Set pid_cdev(%s%s): set_pt:%d temp:%d cdev:%d(%s) state:%d max:%d\n",
++				pid_ctrl.get_pid_mode() == PID_INCREMENTAL ? "inc" : "abs",
++				inverted ? ",inv" : "",
++				set_point, temperature, index, type_str.c_str(),
++				get_curr_state(), max_state);
+ 		ret = THD_SUCCESS;
+ 	} else {
+ 		if (state)
+diff --git a/src/thd_cdev.h b/src/thd_cdev.h
+index 9b0ad22..8a9f64b 100644
+--- a/src/thd_cdev.h
++++ b/src/thd_cdev.h
+@@ -266,6 +266,11 @@ public:
+ 		pid_ctrl.kd = kd;
+ 		thd_log_info("set_pid_param %d [%g.%g,%g]\n", index, kp, ki, kd);
+ 	}
++	void set_pid_mode(pid_mode_t m) {
++		pid_ctrl.set_pid_mode(m);
++		thd_log_info("set_pid_mode %d [%s]\n", index,
++				m == PID_INCREMENTAL ? "incremental" : "absolute");
++	}
+ 	void enable_pid() {
+ 		thd_log_info("PID control enabled %d\n", index);
+ 		pid_enable = true;
+diff --git a/src/thd_engine_default.cpp b/src/thd_engine_default.cpp
+index 6f39c42..619dc63 100644
+--- a/src/thd_engine_default.cpp
++++ b/src/thd_engine_default.cpp
+@@ -64,11 +64,11 @@ static const cooling_dev_t cpu_def_cooling_devices[] = {
+ 		{ true, CDEV_DEF_BIT_UNIT_VAL
+ 				| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
+ 				0, ABSOULUTE_VALUE, 0, 0, 5, false, false, "intel_powerclamp", "", 4,
+-				false, { 0.0, 0.0, 0.0 },"" },
++				false, { 0.0, 0.0, 0.0, PID_ABSOLUTE },"" },
+ 		{ true, CDEV_DEF_BIT_UNIT_VAL
+ 				| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
+ 				0, ABSOULUTE_VALUE, 0, 100, 5, false, false, "LCD", "", 4, false, { 0.0,
+-				0.0, 0.0 },"" } };
++				0.0, 0.0, PID_ABSOLUTE },"" } };
+ 
+ cthd_engine_default::~cthd_engine_default() {
+ }
+@@ -687,6 +687,7 @@ int cthd_engine_default::add_replace_cdev(const cooling_dev_t *config) {
+ 	if (config->mask & CDEV_DEF_BIT_PID_PARAMS) {
+ 		cdev->enable_pid();
+ 		cdev->set_pid_param(config->pid.Kp, config->pid.Ki, config->pid.Kd);
++		cdev->set_pid_mode(config->pid.mode);
+ 	}
+ 
+ 	if (config->mask & CDEV_DEF_BIT_WRITE_PREFIX)
+diff --git a/src/thd_parse.cpp b/src/thd_parse.cpp
+index 0779337..f7bca6b 100644
+--- a/src/thd_parse.cpp
++++ b/src/thd_parse.cpp
+@@ -246,6 +246,7 @@ int cthd_parse::parse_new_trip_cdev(xmlNode * a_node, xmlDoc *doc,
+ 					trip_cdev->pid_param.kp = pid_params.Kp;
+ 					trip_cdev->pid_param.ki = pid_params.Ki;
+ 					trip_cdev->pid_param.kd = pid_params.Kd;
++					trip_cdev->pid_param.mode = pid_params.mode;
+ 					trip_cdev->pid_param.valid = 1;
+ 				}
+ 				xmlFree(tmp_value);
+@@ -309,6 +310,7 @@ int cthd_parse::parse_new_trip_point(xmlNode * a_node, xmlDoc *doc,
+ 				trip_cdev.pid_param.kp = 0.0;
+ 				trip_cdev.pid_param.ki = 0.0;
+ 				trip_cdev.pid_param.kd = 0.0;
++				trip_cdev.pid_param.mode = PID_ABSOLUTE;
+ 
+ 				parse_new_trip_cdev(cur_node->children, doc, &trip_cdev);
+ 				trip_pt->cdev_trips.push_back(trip_cdev);
+@@ -380,6 +382,7 @@ int cthd_parse::parse_pid_values(xmlNode * a_node, xmlDoc *doc,
+ 	pid_ptr->Kp = 0.0005;
+ 	pid_ptr->Ki = 0.0001;
+ 	pid_ptr->Kd = 0.0001;
++	pid_ptr->mode = PID_ABSOLUTE;   /* default */
+ 
+ 	for (cur_node = a_node; cur_node; cur_node = cur_node->next) {
+ 		if (cur_node->type == XML_ELEMENT_NODE) {
+@@ -389,22 +392,33 @@ int cthd_parse::parse_pid_values(xmlNode * a_node, xmlDoc *doc,
+ 			if (tmp_value) {
+ 				if (!thd_strcasecmp_n((const char*) cur_node->name, "Kp")) {
+ 					double val;
+-
+-					if (parse_double_value(tmp_value, &val, 0.0, 100.0) == THD_SUCCESS) {
++					/* Extended range: 0–1000 to support power-limit control
++					 * (temperature in millidegrees, power in microwatts). */
++					if (parse_double_value(tmp_value, &val, 0.0, 1000.0) == THD_SUCCESS) {
+ 						pid_ptr->Kp = val;
+ 					}
+ 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Kd")) {
+ 					double val;
+-
+-					if (parse_double_value(tmp_value, &val, 0.0, 100.0) == THD_SUCCESS) {
++					if (parse_double_value(tmp_value, &val, 0.0, 1000.0) == THD_SUCCESS) {
+ 						pid_ptr->Kd = val;
+ 					}
+ 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Ki")) {
+ 					double val;
+-
+-					if (parse_double_value(tmp_value, &val, 0.0, 100.0) == THD_SUCCESS) {
++					if (parse_double_value(tmp_value, &val, 0.0, 1000.0) == THD_SUCCESS) {
+ 						pid_ptr->Ki = val;
+ 					}
++				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
++						"PidMode")) {
++					/*
++					 * <PidMode>absolute</PidMode>     — absolute PID (default)
++					 * <PidMode>incremental</PidMode>  — incremental PID
++					 */
++					char *mode_val = char_trim(tmp_value);
++					if (mode_val &&
++					    !thd_strcasecmp_n(mode_val, "incremental"))
++						pid_ptr->mode = PID_INCREMENTAL;
++					else
++						pid_ptr->mode = PID_ABSOLUTE;
+ 				}
+ 				xmlFree(tmp_value);
+ 			}
+diff --git a/src/thd_parse.h b/src/thd_parse.h
+index 8d9160a..568d8ca 100644
+--- a/src/thd_parse.h
++++ b/src/thd_parse.h
+@@ -51,6 +51,7 @@ typedef struct {
+ 	double Kp;
+ 	double Ki;
+ 	double Kd;
++	pid_mode_t mode;   /* PID_ABSOLUTE (default) or PID_INCREMENTAL */
+ } pid_control_t;
+ 
+ typedef struct {
+diff --git a/src/thd_pid.cpp b/src/thd_pid.cpp
+index 80143d8..bdda815 100644
+--- a/src/thd_pid.cpp
++++ b/src/thd_pid.cpp
+@@ -30,43 +30,65 @@ cthd_pid::cthd_pid() {
+ 	err_sum = 0.0;
+ 	last_err = 0.0;
+ 	target_temp = 0;
++	mode = PID_ABSOLUTE;
+ }
+ 
+ int cthd_pid::pid_output(unsigned int curr_temp, int initial_value) {
+ 	double output;
+-	double d_err = 0;
+-	int error = curr_temp - target_temp;
++	/* Use signed arithmetic to avoid unsigned wrap-around when
++	 * curr_temp < target_temp */
++	int error = (int)curr_temp - (int)target_temp;
+ 
+ 	time_t now;
+ 	time(&now);
++
+ 	if (last_time == 0) {
++		/* First call: initialise state. */
+ 		last_time = now;
++		last_err = error;
+ 
+-		/* Initialize integrative component (err_sum) so that current
+-		 * output is the initial_value.
+-		 * d_err must be assumed to be zero for this */
+-		if (ki)
+-			err_sum = (initial_value - kp * error) / ki;
+-		else
++		if (mode == PID_INCREMENTAL) {
++			/* No integral history yet — return Kp*e so the first
++			 * poll already applies a proportional correction. */
+ 			err_sum = 0;
++			output = kp * error;
++		} else {
++			/* Absolute mode: seed err_sum for bumpless start so the
++			 * first output equals initial_value. d_err assumed zero. */
++			err_sum = ki ? (initial_value - kp * error) / ki : 0;
++			output = kp * error + ki * err_sum;
++		}
++		thd_log_debug("pid first call mode:%s e:%d out:%d\n",
++				mode == PID_INCREMENTAL ? "inc" : "abs",
++				error, (int)output);
++		return (int)output;
+ 	}
++
+ 	time_t timeChange = (now - last_time);
+ 
+-	thd_log_debug("pid_output error %d %g:%g\n", error, kp, kp * error);
+-	err_sum += (error * timeChange);
+-	if (timeChange)
+-		d_err = (error - last_err) / timeChange;
+-	else
+-		d_err = 0.0;
++	/*
++	 * Both modes use the same PID formula:
++	 *   u = Kp*e + Ki*∫e*dt + Kd*de/dt
++	 *
++	 * The difference is in the caller (thd_cdev_set_state):
++	 *   Absolute:    new_state = min_state  ± u  (fixed steady-state)
++	 *   Incremental: new_state = curr_state ± u  (keeps reducing each poll)
++	 */
++	err_sum += (double)error * timeChange;
++
++	double d_err = timeChange ?
++			(double)(error - last_err) / timeChange : 0.0;
+ 
+-	/*Compute PID Output*/
+ 	output = kp * error + ki * err_sum + kd * d_err;
+-	thd_log_debug("pid %d:%d:%d:%d\n", (int) output, (int) (kp * error),
+-			(int) (ki * err_sum), (int) (kd * d_err));
+-	/*Remember some variables for next time*/
++
++	thd_log_debug("pid_%s e:%d kp:%g ki_sum:%g kd:%g out:%d\n",
++			mode == PID_INCREMENTAL ? "inc" : "abs",
++			error, kp * error, ki * err_sum, kd * d_err, (int)output);
++
+ 	last_err = error;
+ 	last_time = now;
+-	thd_log_debug("pid_output %d:%d %g:%d\n", curr_temp, target_temp, output,
+-			(int) output);
+-	return (int) output;
++
++	thd_log_debug("pid_output curr:%u tgt:%u mode:%d out:%d\n",
++			curr_temp, target_temp, (int)mode, (int)output);
++	return (int)output;
+ }
+diff --git a/src/thd_pid.h b/src/thd_pid.h
+index 7dcae3b..19cf009 100644
+--- a/src/thd_pid.h
++++ b/src/thd_pid.h
+@@ -23,14 +23,35 @@
+  */
+ 
+ #include "thermald.h"
++#include <cstdint>
+ #include <time.h>
+ 
++/*
++ * PID controller mode:
++ *
++ *   PID_ABSOLUTE    - Output is the absolute desired state.
++ *                     u = Kp*e + Ki*∫e*dt + Kd*de/dt
++ *                     Caller: new_state = min_state ± u
++ *                     Finds a fixed steady-state proportional to the error.
++ *
++ *   PID_INCREMENTAL - Same formula as absolute, but output is applied as a
++ *                     delta to the current state instead of to min_state.
++ *                     Caller: new_state = curr_state ± u
++ *                     Power limit keeps decreasing each poll while
++ *                     temperature stays above the trip threshold.
++ */
++typedef enum : std::uint8_t {
++	PID_ABSOLUTE,
++	PID_INCREMENTAL
++} pid_mode_t;
++
+ typedef struct
+ {
+ 	int valid;
+ 	double kp;
+ 	double ki;
+ 	double kd;
++	pid_mode_t mode;
+ }pid_param_t;
+ 
+ class cthd_pid {
+@@ -39,10 +60,11 @@ private:
+ 	double err_sum, last_err;
+ 	time_t last_time;
+ 	unsigned int target_temp;
++	pid_mode_t mode;
+ 
+ public:
+-	cthd_pid();
+ 	double kp, ki, kd;
++	cthd_pid();
+ 	cthd_pid(const cthd_pid& x) = default;
+ 	
+ 	~cthd_pid() { }
+@@ -55,11 +77,14 @@ public:
+ 		ki = _ki;
+ 		kd = _kd;
+ 	}
++	void set_pid_mode(pid_mode_t m) { mode = m; }
++	pid_mode_t get_pid_mode() const { return mode; }
++
+ 	int pid_output(unsigned int curr_temp, int initial_value = 0);
+ 	void set_target_temp(unsigned int temp) {
+ 		target_temp = temp;
+ 	}
+ 	void reset() {
+ 		err_sum = last_err = last_time = 0;
+-	}	
++	}
+ };
+diff --git a/src/thd_trip_point.cpp b/src/thd_trip_point.cpp
+index a6e1c38..70e4465 100644
+--- a/src/thd_trip_point.cpp
++++ b/src/thd_trip_point.cpp
+@@ -271,8 +271,19 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
+ 					cdev->get_cdev_type().c_str());
+ 			/*
+ 			 * When the cdev is already in max state, we skip this cdev.
++			 *
++			 * EXCEPTION: For PID control on an inverted-range device
++			 * (max_state < min_state, e.g. RAPL/SPEL power limits where
++			 * max_state = minimum power = most restrictive), we must keep
++			 * calling the PID even when at max_state.  The PID may compute
++			 * a less-restrictive output as temperature drops back toward the
++			 * trip threshold, allowing the power limit to be relaxed
++			 * proportionally rather than staying pinned at max_state until
++			 * the trip fully deactivates.
+ 			 */
+-			if (cdev->in_max_state()) {
++			if (cdev->in_max_state() &&
++			    !(cdevs[i].pid_param.valid &&
++			      cdev->get_max_state() < cdev->get_min_state())) {
+ 				thd_log_debug("Need to switch to next cdev target %d\n",
+ 						cdev->map_target_state(cdevs[i].target_state_valid,
+ 								cdevs[i].target_state));
+@@ -350,12 +361,15 @@ void cthd_trip_point::thd_trip_point_add_cdev(cthd_cdev &cdev, int influence,
+ 		thd_cdev.max_state = max_state;
+ 	}
+ 	if (pid_param && pid_param->valid) {
+-		thd_log_info("pid valid %f:%f:%f\n", pid_param->kp, pid_param->ki,
+-				pid_param->kd);
++		thd_log_info("pid valid %f:%f:%f mode:%s\n", pid_param->kp,
++				pid_param->ki, pid_param->kd,
++				pid_param->mode == PID_INCREMENTAL ? "incremental" : "absolute");
+ 		memcpy(&thd_cdev.pid_param, pid_param, sizeof(pid_param_t));
+ 		thd_cdev.pid.set_pid_param(pid_param->kp, pid_param->ki, pid_param->kd);
++		thd_cdev.pid.set_pid_mode(pid_param->mode);
+ 	} else {
+ 		memset(&thd_cdev.pid_param, 0, sizeof(pid_param_t));
++		thd_cdev.pid_param.mode = PID_ABSOLUTE;
+ 	}
+ 	trip_cdev_add(thd_cdev);
+ }
+diff --git a/src/thd_trip_point.h b/src/thd_trip_point.h
+index 095f9b0..9068634 100644
+--- a/src/thd_trip_point.h
++++ b/src/thd_trip_point.h
+@@ -78,6 +78,7 @@ public:
+ 		pid_param.kp = 0;
+ 		pid_param.ki = 0;
+ 		pid_param.kd = 0;
++		pid_param.mode = PID_ABSOLUTE;
+ 		min_max_valid = 0;
+ 		min_state = 0;
+ 		max_state = 0;
+-- 
+2.43.0
+
