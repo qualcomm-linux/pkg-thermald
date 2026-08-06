@@ -1,13 +1,13 @@
-From e985c375b03e7ae04275980258f8eba6fb44c24a Mon Sep 17 00:00:00 2001
+From dad6b5191015b498ff1dd93e3827a6547e973762 Mon Sep 17 00:00:00 2001
 From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
 Date: Mon, 13 Jul 2026 15:25:06 +0530
-Subject: [PATCH] thermald : PID fix inverted-range control and add incremental
- PID mode
+Subject: [PATCH v2] thermald : PID fix inverted-range control and add
+ incremental PID mode
 
 Origin: https://github.com/intel/thermal_daemon/pull/587
 Forwarded: https://github.com/intel/thermal_daemon/pull/587
 Applied-Upstream: not yet
-Last-Update: 2026-07-29
+Last-Update: 2026-08-06
 
 Power-limit devices (RAPL, SPEL) use an inverted state range where
 min_state is the maximum allowed power and max_state is the minimum.
@@ -27,10 +27,17 @@ PID mode.
   temperature-to-power mappings (thd_parse.cpp)
 - Add <PidMode>incremental</PidMode> XML element to select the mode
 
+Changes in v2:
+- thd_trip_point.cpp: extend in_max_state() bypass to cover cdev-level
+  PID (is_pid_enabled()) in addition to trip-level PID (pid_param.valid);
+  add is_pid_enabled() accessor to thd_cdev.h
+- thd_cdev.cpp: use get_curr_state(true) in incremental PID branches to
+  anchor each step to the actual hardware state, not the cached value
+
 Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
 ---
  src/thd_cdev.cpp           | 80 +++++++++++++++++++++++++++++++++-----
- src/thd_cdev.h             |  5 +++
+ src/thd_cdev.h             |  6 +++
  src/thd_engine_default.cpp |  5 ++-
  src/thd_parse.cpp          | 26 ++++++++++---
  src/thd_parse.h            |  1 +
@@ -38,10 +45,10 @@ Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
  src/thd_pid.h              | 29 +++++++++++++-
  src/thd_trip_point.cpp     | 20 ++++++++--
  src/thd_trip_point.h       |  1 +
- 9 files changed, 187 insertions(+), 44 deletions(-)
+ 9 files changed, 188 insertions(+), 44 deletions(-)
 
 diff --git a/src/thd_cdev.cpp b/src/thd_cdev.cpp
-index 165e5fb..b873b55 100644
+index 165e5fb..189ae3e 100644
 --- a/src/thd_cdev.cpp
 +++ b/src/thd_cdev.cpp
 @@ -475,10 +475,44 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
@@ -75,7 +82,7 @@ index 165e5fb..b873b55 100644
 +				ret = pid.pid_output(temperature, 0);
 +				if (inverted)
 +					ret = -ret;
-+				ret += get_curr_state();
++				ret += get_curr_state(true);
 +			}
 +		} else {
 +			/* Absolute PID: output is the desired offset from min_state */
@@ -125,7 +132,7 @@ index 165e5fb..b873b55 100644
 +				ret = pid_ctrl.pid_output(temperature, 0);
 +				if (inverted)
 +					ret = -ret;
-+				ret += get_curr_state();
++				ret += get_curr_state(true);
 +			}
 +		} else {
 +			int initial_val = get_curr_state(true) - get_min_state();
@@ -154,10 +161,10 @@ index 165e5fb..b873b55 100644
  	} else {
  		if (state)
 diff --git a/src/thd_cdev.h b/src/thd_cdev.h
-index 9b0ad22..8a9f64b 100644
+index 9b0ad22..0ac594f 100644
 --- a/src/thd_cdev.h
 +++ b/src/thd_cdev.h
-@@ -266,6 +266,11 @@ public:
+@@ -266,10 +266,16 @@ public:
  		pid_ctrl.kd = kd;
  		thd_log_info("set_pid_param %d [%g.%g,%g]\n", index, kp, ki, kd);
  	}
@@ -169,11 +176,16 @@ index 9b0ad22..8a9f64b 100644
  	void enable_pid() {
  		thd_log_info("PID control enabled %d\n", index);
  		pid_enable = true;
+ 	}
++	bool is_pid_enabled() const { return pid_enable; }
+ 
+ 	void thd_cdev_set_write_prefix(std::string prefix) {
+		write_prefix = std::move(prefix);
 diff --git a/src/thd_engine_default.cpp b/src/thd_engine_default.cpp
-index 6f39c42..619dc63 100644
+index c2f7f9c..6fa1795 100644
 --- a/src/thd_engine_default.cpp
 +++ b/src/thd_engine_default.cpp
-@@ -64,11 +64,11 @@ static const cooling_dev_t cpu_def_cooling_devices[] = {
+@@ -65,11 +65,11 @@ static const cooling_dev_t cpu_def_cooling_devices[] = {
  		{ true, CDEV_DEF_BIT_UNIT_VAL
  				| CDEV_DEF_BIT_READ_BACK | CDEV_DEF_BIT_MIN_STATE | CDEV_DEF_BIT_STEP,
  				0, ABSOULUTE_VALUE, 0, 0, 5, false, false, "intel_powerclamp", "", 4,
@@ -187,7 +199,7 @@ index 6f39c42..619dc63 100644
  
  cthd_engine_default::~cthd_engine_default() {
  }
-@@ -687,6 +687,7 @@ int cthd_engine_default::add_replace_cdev(const cooling_dev_t *config) {
+@@ -688,6 +688,7 @@ int cthd_engine_default::add_replace_cdev(const cooling_dev_t *config) {
  	if (config->mask & CDEV_DEF_BIT_PID_PARAMS) {
  		cdev->enable_pid();
  		cdev->set_pid_param(config->pid.Kp, config->pid.Ki, config->pid.Kd);
@@ -196,7 +208,7 @@ index 6f39c42..619dc63 100644
  
  	if (config->mask & CDEV_DEF_BIT_WRITE_PREFIX)
 diff --git a/src/thd_parse.cpp b/src/thd_parse.cpp
-index 0779337..f7bca6b 100644
+index ea80ced..f3004e3 100644
 --- a/src/thd_parse.cpp
 +++ b/src/thd_parse.cpp
 @@ -246,6 +246,7 @@ int cthd_parse::parse_new_trip_cdev(xmlNode * a_node, xmlDoc *doc,
@@ -264,7 +276,7 @@ index 0779337..f7bca6b 100644
  				xmlFree(tmp_value);
  			}
 diff --git a/src/thd_parse.h b/src/thd_parse.h
-index 8d9160a..568d8ca 100644
+index 1821d6d..584edfc 100644
 --- a/src/thd_parse.h
 +++ b/src/thd_parse.h
 @@ -51,6 +51,7 @@ typedef struct {
@@ -436,7 +448,7 @@ index 7dcae3b..19cf009 100644
 +	}
  };
 diff --git a/src/thd_trip_point.cpp b/src/thd_trip_point.cpp
-index a6e1c38..70e4465 100644
+index a6e1c38..b883b63 100644
 --- a/src/thd_trip_point.cpp
 +++ b/src/thd_trip_point.cpp
 @@ -271,8 +271,19 @@ bool cthd_trip_point::thd_trip_point_check(int id, unsigned int read_temp,
@@ -455,7 +467,7 @@ index a6e1c38..70e4465 100644
  			 */
 -			if (cdev->in_max_state()) {
 +			if (cdev->in_max_state() &&
-+			    !(cdevs[i].pid_param.valid &&
++			    !((cdevs[i].pid_param.valid || cdev->is_pid_enabled()) &&
 +			      cdev->get_max_state() < cdev->get_min_state())) {
  				thd_log_debug("Need to switch to next cdev target %d\n",
  						cdev->map_target_state(cdevs[i].target_state_valid,
