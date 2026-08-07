@@ -2,3 +2,4 @@
 0002-add-qualcomm-spel-cooling-device-support.patch
 0003-add-soc-model-matching-via-device-tree-for-arm-qualcomm.patch
 0004-thermald-PID-fix-inverted-range-control-and-add-incr
+0005-data-install-thermal-conf.xml-to-etc-thermald-by-def.patch
