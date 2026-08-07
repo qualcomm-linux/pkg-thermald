@@ -1,6 +1,6 @@
-From dad6b5191015b498ff1dd93e3827a6547e973762 Mon Sep 17 00:00:00 2001
+From f7500bb87b26bad99d439ef6ab12ce4914ee9432 Mon Sep 17 00:00:00 2001
 From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
-Date: Mon, 13 Jul 2026 15:25:06 +0530
+Date: Fri, 7 Aug 2026 12:16:37 +0530
 Subject: [PATCH v2] thermald : PID fix inverted-range control and add
  incremental PID mode
 
@@ -36,19 +36,19 @@ Changes in v2:
 
 Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
 ---
- src/thd_cdev.cpp           | 80 +++++++++++++++++++++++++++++++++-----
+ src/thd_cdev.cpp           | 76 ++++++++++++++++++++++++++++++++++----
  src/thd_cdev.h             |  6 +++
  src/thd_engine_default.cpp |  5 ++-
  src/thd_parse.cpp          | 26 ++++++++++---
  src/thd_parse.h            |  1 +
- src/thd_pid.cpp            | 64 ++++++++++++++++++++----------
- src/thd_pid.h              | 29 +++++++++++++-
+ src/thd_pid.cpp            | 64 +++++++++++++++++++++-----------
+ src/thd_pid.h              | 29 ++++++++++++++-
  src/thd_trip_point.cpp     | 20 ++++++++--
  src/thd_trip_point.h       |  1 +
- 9 files changed, 188 insertions(+), 44 deletions(-)
+ 9 files changed, 186 insertions(+), 42 deletions(-)
 
 diff --git a/src/thd_cdev.cpp b/src/thd_cdev.cpp
-index 165e5fb..189ae3e 100644
+index 165e5fb..e9fc208 100644
 --- a/src/thd_cdev.cpp
 +++ b/src/thd_cdev.cpp
 @@ -475,10 +475,44 @@ int cthd_cdev::thd_cdev_set_state(int set_point, int target_temp,
@@ -58,7 +58,6 @@ index 165e5fb..189ae3e 100644
 -		// Handle PID param unique to a trip
  		pid.set_target_temp(target_temp);
 -		ret = pid.pid_output(temperature, get_curr_state(true) - get_min_state());
--		ret += get_min_state();
 +		bool inverted = (get_min_state() > get_max_state());
 +
 +		if (pid_param->mode == PID_INCREMENTAL) {
@@ -92,7 +91,7 @@ index 165e5fb..189ae3e 100644
 +			ret = pid.pid_output(temperature, initial_val);
 +			if (inverted)
 +				ret = -ret;
-+			ret += get_min_state();
+ 		ret += get_min_state();
 +		}
 +
 +		/* Clamp to valid state range (handles both normal and inverted) */
@@ -122,7 +121,6 @@ index 165e5fb..189ae3e 100644
 +		 * the trip-level PID branch above. */
  		pid_ctrl.set_target_temp(target_temp);
 -		ret = pid_ctrl.pid_output(temperature);
--		ret += get_min_state();
 +		bool inverted = (get_min_state() > get_max_state());
 +
 +		if (pid_ctrl.get_pid_mode() == PID_INCREMENTAL) {
@@ -141,7 +139,7 @@ index 165e5fb..189ae3e 100644
 +			ret = pid_ctrl.pid_output(temperature, initial_val);
 +			if (inverted)
 +				ret = -ret;
-+			ret += get_min_state();
+ 		ret += get_min_state();
 +		}
  
  		if (get_min_state() < get_max_state()) {
@@ -180,7 +178,7 @@ index 9b0ad22..0ac594f 100644
 +	bool is_pid_enabled() const { return pid_enable; }
  
  	void thd_cdev_set_write_prefix(std::string prefix) {
-		write_prefix = std::move(prefix);
+ 		write_prefix = std::move(prefix);
 diff --git a/src/thd_engine_default.cpp b/src/thd_engine_default.cpp
 index c2f7f9c..6fa1795 100644
 --- a/src/thd_engine_default.cpp

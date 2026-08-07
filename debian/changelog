@@ -1,3 +1,9 @@
+thermald (2.5.12-1qli+staging4) UNRELEASED; urgency=medium
+
+  * Fix thermald PID patch application.
+
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Fri, 07 Aug 2026 12:56:05 +0530
+
 thermald (2.5.12-1qli+staging3) UNRELEASED; urgency=medium
 
   * debian/patches/00005-data-install-thermal-conf.xml-to-etc-thermald-by-def.patch:
