@@ -6,3 +6,8 @@ copy updates from the reference location. They will be updated as the reference
 location is updated. See
 [README.md](https://github.com/qualcomm-linux/debusine-action/blob/main/packaging-workflows/README.md)
 for details.
+
+To temporarily disable Debusine workflows for this repository without removing
+workflow files or environments, set the repository Actions variable
+`DEBUSINE_WORKFLOWS_DISABLED` to `true`. Delete the variable, or set it to any
+other value, to re-enable the workflows.
