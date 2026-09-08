@@ -3,11 +3,13 @@ thermald (2.5.12-1qli+staging5+qli1) UNRELEASED; urgency=medium
   * debian/patches/0006-thermald-spel-restrict-PL-init-to-XML-defined-cdev-o.patch:
     thermald: spel: restrict PL init to XML-defined cdev only
 
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com> Tue, 08 Sep 2026 11:30:00 +0530
+
 thermald (2.5.12-1qli+staging4+qli1) UNRELEASED; urgency=medium
 
   * Fix thermald PID patch application. 
 
- -- Priyansh Jain <priyjain@hu-priyjain-hyd.qualcomm.com>  Mon, 07 Sep 2026 12:51:53 +0530
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Mon, 07 Sep 2026 12:51:53 +0530
 
 thermald (2.5.12-1qli+staging3) UNRELEASED; urgency=medium
 
