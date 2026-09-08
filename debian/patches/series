@@ -3,3 +3,4 @@
 0003-add-soc-model-matching-via-device-tree-for-arm-qualcomm.patch
 0004-thermald-PID-fix-inverted-range-control-and-add-i.patch
 0005-data-install-thermal-conf.xml-to-etc-thermald-by-def.patch
+0006-thermald-spel-restrict-PL-init-to-XML-defined-cdev-o.patch
