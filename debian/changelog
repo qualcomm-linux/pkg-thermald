@@ -1,3 +1,12 @@
+thermald (2.5.12-1qli+staging6+qli1) UNRELEASED; urgency=medium
+
+  * debian/patches/0006-build-Install-thermal-conf.xml-by-default.patch:
+    build: Install thermal-conf.xml by default
+  * debian/patches/0007-Add-SoC-power-limit-based-thermal-control-for-Qualco.patch:
+    Add SoC power-limit based thermal control for Qualcomm Glymur
+
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Sun, 25 Oct 2026 21:42:30 +0530
+
 thermald (2.5.12-1qli+staging5+qli1) UNRELEASED; urgency=medium
 
   * debian/patches/0006-thermald-spel-restrict-PL-init-to-XML-defined-cdev-o.patch:

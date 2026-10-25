@@ -1,0 +1,35 @@
+From f3d23041f990c74cbc828bc30d7d9f8ba8d51bfd Mon Sep 17 00:00:00 2001
+From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+Date: Sun, 25 Oct 2026 21:08:43 +0530
+Subject: [PATCH 1/2] build: Install thermal-conf.xml by default
+
+Origin: not yet
+Forwarded: not yet
+Applied-Upstream: not yet
+Last-Update: 2026-10-25
+
+List thermal-conf.xml in tdconfig_DATA, so that it can be
+installed by default. So if any platform configurations are added,
+those can be applied by default on daemon installation if the
+platform matches.
+
+Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+---
+ data/Makefile.am | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/data/Makefile.am b/data/Makefile.am
+index 1328be6..7f28082 100644
+--- a/data/Makefile.am
++++ b/data/Makefile.am
+@@ -28,6 +28,7 @@ dbusservice_DATA = org.freedesktop.thermald.conf
+ 
+ tdconfigdir = $(tdconfdir)
+ tdconfig_DATA = \
++	thermal-conf.xml \
+ 	thermal-cpu-cdev-order.xml \
+ 	thermald-features.xml
+ 
+-- 
+2.43.0
+

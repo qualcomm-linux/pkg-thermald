@@ -1,0 +1,99 @@
+From 1615ad12e5d7aed77bc1067b41b5f5e5a775ed1d Mon Sep 17 00:00:00 2001
+From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+Date: Sun, 25 Oct 2026 21:09:04 +0530
+Subject: [PATCH 2/2] Add SoC power-limit based thermal control for Qualcomm
+ Glymur
+
+Origin: not yet
+Forwarded: not yet
+Applied-Upstream: not yet
+Last-Update: 2026-10-25
+
+Replace the basic cpufreq-only trip point for the Qualcomm Glymur CRD
+platform with a power-limit control path:
+
+- Monitor the EC thermal sensor (qcom_ec_therm_2) instead of the SoC
+  cpu-thermal zone.
+- Drive the SPEL SoC PL1 power-capping cooling device
+  (spel_controller_soc_pl1) via its powercap sysfs interface.
+- Use an incremental PID controller to adjust the power limit instead
+  of a fixed step/state based cooling device.
+- Declare the platform's supported power and time-window range via
+  PPCC so thermald can validate requested limits.
+
+Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+---
+ data/thermal-conf.xml | 41 +++++++++++++++++++++++++++++------------
+ 1 file changed, 29 insertions(+), 12 deletions(-)
+
+diff --git a/data/thermal-conf.xml b/data/thermal-conf.xml
+index 13516ac..9fbd28a 100644
+--- a/data/thermal-conf.xml
++++ b/data/thermal-conf.xml
+@@ -210,34 +210,51 @@ use "man thermal-conf.xml" for details
+           SoCModel "Qualcomm Technologies, Inc. Glymur"
+ -->
+ <Platform>
+-	<Name>Qualcomm Glymur CRD Platform</Name>
++	<Name>Qualcomm Glymur Platform</Name>
+ 	<SoCModel>Qualcomm Technologies, Inc. Glymur CRD</SoCModel>
+-	<Preference>QUIET</Preference>
++	<PollingInterval>5</PollingInterval>
++	<PPCC>
++		<PowerLimitMinimum>10000</PowerLimitMinimum> <!-- 10W minimum -->
++		<PowerLimitMaximum>38000</PowerLimitMaximum> <!-- 38W maximum -->
++		<TimeWindowMinimum>15000</TimeWindowMinimum> <!-- 15 second minimum -->
++		<TimeWindowMaximum>630000</TimeWindowMaximum> <!-- 630 second maximum -->
++	</PPCC>
+ 	<ThermalSensors>
+ 		<ThermalSensor>
+-			<Type>cpu-thermal</Type>
+-			<AsyncCapable>1</AsyncCapable>
++			<Type>qcom_ec_therm_2</Type>
++			<AsyncCapable>0</AsyncCapable>
+ 		</ThermalSensor>
+ 	</ThermalSensors>
+ 	<ThermalZones>
+ 		<ThermalZone>
+-			<Type>cpu-thermal</Type>
++			<Type>qcom_ec_therm_2</Type>
+ 			<TripPoints>
+ 				<TripPoint>
+-					<SensorType>cpu-thermal</SensorType>
+-					<Temperature>85000</Temperature>
++					<SensorType>qcom_ec_therm_2</SensorType>
++					<Temperature>48000</Temperature> <!-- 48C -->
++					<Hyst>2000</Hyst>
+ 					<type>passive</type>
+-					<ControlType>SEQUENTIAL</ControlType>
+ 					<CoolingDevice>
+-						<index>1</index>
+-						<type>cpufreq</type>
+-						<influence>100</influence>
+-						<SamplingPeriod>10</SamplingPeriod>
++						<Type>spel_controller_soc_pl1</Type>
++						<SamplingPeriod>1</SamplingPeriod>
++						<PidControl>
++							<Kp>100</Kp> <!-- Moderate response -->
++							<Ki>0</Ki> <!-- No integral action -->
++							<Kd>280</Kd> <!-- Light damping -->
++							<PidMode>incremental</PidMode>
++						</PidControl>
+ 					</CoolingDevice>
+ 				</TripPoint>
+ 			</TripPoints>
+ 		</ThermalZone>
+ 	</ThermalZones>
++	<CoolingDevices>
++		<CoolingDevice>
++			<Type>spel_controller_soc_pl1</Type>
++			<SysfsPath>/sys/class/powercap/qcom-spel:0:0/</SysfsPath>
++			<DebouncePeriod>0</DebouncePeriod>
++		</CoolingDevice>
++	</CoolingDevices>
+ </Platform>
+ </ThermalConfiguration>
+ <!-- END -->
+-- 
+2.43.0
+
