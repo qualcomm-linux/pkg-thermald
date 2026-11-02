@@ -1,3 +1,11 @@
+thermald (2.5.12-1qli+staging7+qli1) UNRELEASED; urgency=medium
+
+  * debian/patches/0007-Add-SoC-power-limit-based-thermal-control-for-Qualco.patch:
+    Fix EC thermal sensor name (ec-back-cover) used for Qualcomm Glymur
+    power-limit thermal control
+
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Mon, 02 Nov 2026 21:37:20 +0530
+
 thermald (2.5.12-1qli+staging6+qli1) UNRELEASED; urgency=medium
 
   * debian/patches/0006-build-Install-thermal-conf.xml-by-default.patch:

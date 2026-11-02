@@ -12,7 +12,7 @@ Last-Update: 2026-10-25
 Replace the basic cpufreq-only trip point for the Qualcomm Glymur CRD
 platform with a power-limit control path:
 
-- Monitor the EC thermal sensor (qcom_ec_therm_2) instead of the SoC
+- Monitor the EC thermal sensor (ec-back-cover) instead of the SoC
   cpu-thermal zone.
 - Drive the SPEL SoC PL1 power-capping cooling device
   (spel_controller_soc_pl1) via its powercap sysfs interface.
@@ -49,19 +49,19 @@ index 13516ac..9fbd28a 100644
  		<ThermalSensor>
 -			<Type>cpu-thermal</Type>
 -			<AsyncCapable>1</AsyncCapable>
-+			<Type>qcom_ec_therm_2</Type>
++			<Type>ec-back-cover</Type>
 +			<AsyncCapable>0</AsyncCapable>
  		</ThermalSensor>
  	</ThermalSensors>
  	<ThermalZones>
  		<ThermalZone>
 -			<Type>cpu-thermal</Type>
-+			<Type>qcom_ec_therm_2</Type>
++			<Type>ec-back-cover</Type>
  			<TripPoints>
  				<TripPoint>
 -					<SensorType>cpu-thermal</SensorType>
 -					<Temperature>85000</Temperature>
-+					<SensorType>qcom_ec_therm_2</SensorType>
++					<SensorType>ec-back-cover</SensorType>
 +					<Temperature>48000</Temperature> <!-- 48C -->
 +					<Hyst>2000</Hyst>
  					<type>passive</type>
