@@ -1,3 +1,12 @@
+thermald (2.5.12-1qli+staging8+qli1) UNRELEASED; urgency=medium
+
+  * debian/patches/0008-Add-SoC-power-limit-based-thermal-control-for-Qualc.patch:
+    Add SoC power-limit based thermal control for Qualcomm Kalambo
+  * debian/patches/0009-Add-SoC-power-limit-based-thermal-control-for-Qualc.patch:
+    Add SoC power-limit based thermal control for Qualcomm Mahua
+
+ -- Priyansh Jain <priyansh.jain@oss.qualcomm.com>  Thu, 12 Nov 2026 00:00:00 +0530
+
 thermald (2.5.12-1qli+staging7+qli1) UNRELEASED; urgency=medium
 
   * debian/patches/0007-Add-SoC-power-limit-based-thermal-control-for-Qualco.patch:

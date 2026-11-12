@@ -1,0 +1,83 @@
+From: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+Date: Thu, 12 Nov 2026 00:00:00 +0530
+Subject: Add SoC power-limit based thermal control for Qualcomm Kalambo
+
+Origin: not yet
+Forwarded: not yet
+Applied-Upstream: not yet
+Last-Update: 2026-11-12
+
+Add a power-limit based thermal configuration for the Qualcomm Kalambo
+CRD platform:
+
+- Monitor the EC thermal sensor (ec-back-cover).
+- Drive the SPEL SoC PL1 power-capping cooling device
+  (spel_controller_soc_pl1) via its powercap sysfs interface.
+- Use an incremental PID controller to adjust the power limit.
+- Declare the platform's supported power and time-window range via
+  PPCC so thermald can validate requested limits.
+
+Signed-off-by: Priyansh Jain <priyansh.jain@oss.qualcomm.com>
+---
+Index: pkg-thermald/data/thermal-conf.xml
+===================================================================
+--- pkg-thermald.orig/data/thermal-conf.xml
++++ pkg-thermald/data/thermal-conf.xml
+@@ -256,5 +256,57 @@ use "man thermal-conf.xml" for details
+ 		</CoolingDevice>
+ 	</CoolingDevices>
+ </Platform>
++<!-- Thermal configuration example for Qualcomm platforms using SoCModel.
++     SoCModel is matched as a prefix against /sys/firmware/devicetree/base/model.
++     e.g. "Qualcomm Technologies, Inc. Kalambo CRD" will match
++          SoCModel "Qualcomm Technologies, Inc. Kalambo"
++-->
++<Platform>
++	<Name>Qualcomm Kalambo Platform</Name>
++	<SoCModel>Qualcomm Technologies, Inc. Kalambo CRD</SoCModel>
++	<PollingInterval>5</PollingInterval>
++	<PPCC>
++		<PowerLimitMinimum>10000</PowerLimitMinimum> <!-- 10W minimum -->
++		<PowerLimitMaximum>38000</PowerLimitMaximum> <!-- 38W maximum -->
++		<TimeWindowMinimum>15000</TimeWindowMinimum> <!-- 15 second minimum -->
++		<TimeWindowMaximum>630000</TimeWindowMaximum> <!-- 630 second maximum -->
++	</PPCC>
++	<ThermalSensors>
++		<ThermalSensor>
++			<Type>ec-back-cover</Type>
++			<AsyncCapable>0</AsyncCapable>
++		</ThermalSensor>
++	</ThermalSensors>
++	<ThermalZones>
++		<ThermalZone>
++			<Type>ec-back-cover</Type>
++			<TripPoints>
++				<TripPoint>
++					<SensorType>ec-back-cover</SensorType>
++					<Temperature>48000</Temperature> <!-- 48C -->
++					<Hyst>2000</Hyst>
++					<type>passive</type>
++					<CoolingDevice>
++						<Type>spel_controller_soc_pl1</Type>
++						<SamplingPeriod>1</SamplingPeriod>
++						<PidControl>
++							<Kp>100</Kp> <!-- Moderate response -->
++							<Ki>0</Ki> <!-- No integral action -->
++							<Kd>280</Kd> <!-- Light damping -->
++							<PidMode>incremental</PidMode>
++						</PidControl>
++					</CoolingDevice>
++				</TripPoint>
++			</TripPoints>
++		</ThermalZone>
++	</ThermalZones>
++	<CoolingDevices>
++		<CoolingDevice>
++			<Type>spel_controller_soc_pl1</Type>
++			<SysfsPath>/sys/class/powercap/qcom-spel:0:0/</SysfsPath>
++			<DebouncePeriod>0</DebouncePeriod>
++		</CoolingDevice>
++	</CoolingDevices>
++</Platform>
+ </ThermalConfiguration>
+ <!-- END -->
